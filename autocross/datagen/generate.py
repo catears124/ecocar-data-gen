@@ -205,8 +205,8 @@ def lateral_block(policy: dict, vp: VehicleParams, longitudinal: dict | None) ->
     dec = steer.decide(steer.model_constants(vp), q)
     return {"model": steer.CERT_MODEL, "kind": steer.KIND_NAMES[dec["kind"]],
             "certified": dec["kind"] == steer.KIND_PLAN_OK, "side": dec["side"],
-            "amp": dec["amp"], "offset_mm": dec["off"], "curvature_micro": dec["curv"],
-            "steer_milli": dec["steer"]}
+            "amp": dec["amp"], "offset_mm": dec["off"], "clearance_mm": dec["clear"],
+            "curvature_micro": dec["curv"], "steer_milli": dec["steer"]}
 
 
 def tree_diff(a, b) -> float:

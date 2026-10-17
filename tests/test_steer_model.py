@@ -147,6 +147,7 @@ def test_plan_arrays_match_station_count():
         decision = steer.decide(C, qq)
         n_stations = len(qq["base"]["s"])
         assert len(decision["off"]) == n_stations
+        assert len(decision["clear"]) == n_stations
         assert len(decision["curv"]) == n_stations
         assert len(decision["steer"]) == n_stations
 
@@ -232,8 +233,9 @@ def test_python_and_lean_decide_agree():
     for i, qv in enumerate(cases):
         got = steer.decide(C, qv)
         cs, qs = _lean_consts(C), _lean_q(qv)
-        d = "⟨%d, %s, %s, %s, %s, %s⟩" % (got["kind"], _lean_lit(got["side"]), _lean_lit(got["amp"]),
-                                              _lean_lit(got["off"]), _lean_lit(got["curv"]), _lean_lit(got["steer"]))
+        d = "⟨%d, %s, %s, %s, %s, %s, %s⟩" % (got["kind"], _lean_lit(got["side"]), _lean_lit(got["amp"]),
+                                              _lean_lit(got["off"]), _lean_lit(got["clear"]),
+                                              _lean_lit(got["curv"]), _lean_lit(got["steer"]))
         src.append(f"theorem e{i} : decide {cs} {qs} = {d} := by decide")
     f = root / "SteerParity.scratch.lean"
     try:

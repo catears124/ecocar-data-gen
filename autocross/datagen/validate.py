@@ -33,7 +33,7 @@ RECORD_KEYS = {"schema", "schema_version", "sample_id", "scenario_id", "group_id
                "t", "policy_observation", "target", "expert", "privileged", "applied", "outcome", "timing", "quality",
                "hashes"}
 CERT_KEYS = {"model", "kind", "certified", "accel_mm_s2", "b1_mm2_s2", "b0_mm2_s2", "B0_mm2_s2"}
-LATERAL_KEYS = {"model", "kind", "certified", "side", "amp", "offset_mm", "curvature_micro", "steer_milli"}
+LATERAL_KEYS = {"model", "kind", "certified", "side", "amp", "offset_mm", "clearance_mm", "curvature_micro", "steer_milli"}
 
 
 class Report:

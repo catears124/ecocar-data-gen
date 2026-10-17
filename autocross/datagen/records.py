@@ -178,8 +178,8 @@ def command_to_dict(cmd: Command | None) -> dict | None:
 
 def training_target(raw: dict, certificate: dict | None, lateral: dict | None = None) -> dict:
     """The imitation target of one step. ``longitudinal`` and ``lateral`` are certified
-    integer model blocks; ``uncertified`` remains the declared tracking layer containing
-    the lateral path/steering, pedal mapping, and target speed."""
+    decision blocks; the lateral block includes one integer ``clearance_mm`` per station.
+    ``uncertified`` contains the controller command and planned path."""
     return {"schema": TRAINING_TARGET_SCHEMA, "longitudinal": certificate, "lateral": lateral,
             "uncertified": {k: raw[k] for k in ("steer", "throttle", "brake", "target_speed", "path", "path_frame")}}
 

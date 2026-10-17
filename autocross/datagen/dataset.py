@@ -27,7 +27,7 @@ from . import INDEX_SCHEMA, SAMPLE_SCHEMA, SCHEMA_VERSION, DatagenError
 from .cert import CERT_MODEL
 from .records import POLICY_EGO, POLICY_OBSERVATION_SCHEMA, POLICY_ROAD_KEYS, TRAINING_TARGET_SCHEMA
 
-CERT_SCOPE = "longitudinal acceleration (mm/s^2) of model cert-2 only; lateral path, steering, pedals uncertified"
+CERT_SCOPE = "longitudinal acceleration (mm/s^2) and per-station lateral clearance (mm) of cert-2/steer-1; lateral path, steering, pedals uncertified"
 
 
 def _open_index(root: Path, expect_backend: str | None) -> dict:
@@ -120,13 +120,16 @@ def policy_features(pol: dict, grid: np.ndarray, max_obstacles: int = 2) -> np.n
 
 def to_arrays(examples, grid: np.ndarray | None = None) -> dict:
     """NumPy arrays for a basic training script: ``x`` features, ``y_long`` certified acceleration
-    (m/s^2), ``certified`` mask, ``y_steer`` / ``y_throttle`` / ``y_brake`` (uncertified), ``group``."""
+    (m/s^2), ``certified`` mask, ``y_clearance`` per-station lateral clearance (mm),
+    ``y_steer`` / ``y_throttle`` / ``y_brake`` (uncertified), ``group``."""
     grid = np.arange(0.0, 61.0, 1.0) if grid is None else grid
     x = np.stack([policy_features(p, grid) for p, _, _, _ in examples]) if examples else np.zeros((0, 0))
     lon = [t["longitudinal"] for _, t, _, _ in examples]
     return {"x": x,
             "y_long": np.array([l["accel_mm_s2"] / 1000.0 if l else np.nan for l in lon]),
             "certified": np.array([st["certified"] for _, _, st, _ in examples], bool),
+            "y_clearance": np.array([(t["lateral"] or {}).get("clearance_mm", []) for _, t, _, _ in examples],
+                                    dtype=object),
             "y_steer": np.array([t["uncertified"]["steer"] for _, t, _, _ in examples]),
             "y_throttle": np.array([t["uncertified"]["throttle"] for _, t, _, _ in examples]),
             "y_brake": np.array([t["uncertified"]["brake"] for _, t, _, _ in examples]),

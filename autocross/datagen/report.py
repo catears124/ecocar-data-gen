@@ -49,6 +49,12 @@ def _ess_ar1(x: np.ndarray) -> float:
     rho = float(np.sum(a * b) / den) if den > 0 else 0.0
     rho = min(max(rho, -0.99), 0.99)
     return float(min(max(n * (1 - rho) / (1 + rho), 1.0), n))
+def _clearance_stats(values: list[int]) -> dict:
+    if not values:
+        return {"min_mm": None, "p05_mm": None, "n": 0}
+    a = np.asarray(values, float)
+    return {"min_mm": int(np.min(a)), "p05_mm": float(np.percentile(a, 5)), "n": int(a.size)}
+
 
 
 def dataset_report(root: str | Path) -> dict:
@@ -69,6 +75,7 @@ def dataset_report(root: str | Path) -> dict:
     kinds = Counter()
     contents = Counter()
     n_samples = n_clean = n_cert = n_lat_cert = 0
+    clearance_values, clearance_by_run = [], {}
     for r in runs:
         sp = per_split[r["split"]]
         sp["runs"] += 1
@@ -77,6 +84,7 @@ def dataset_report(root: str | Path) -> dict:
             continue
         samples = load_samples(root / r["files"]["samples"]["path"])
         acc = []
+        run_clearance = []
         for s in samples:
             n_samples += 1
             sp["samples"] += 1
@@ -97,6 +105,10 @@ def dataset_report(root: str | Path) -> dict:
                 if (s["target"].get("lateral") or {}).get("certified"):
                     n_lat_cert += 1
                     sp["lateral_certified_clean_samples"] += 1
+                    vals = (s["target"]["lateral"].get("clearance_mm") or [])
+                    run_clearance.extend(int(v) for v in vals)
+        clearance_by_run[r["scenario_id"]] = _clearance_stats(run_clearance)
+        clearance_values.extend(run_clearance)
         if r.get("clean_run"):
             sp["clean_runs"] += 1
             if r.get("n_clean", 0) > 0:
@@ -133,6 +145,7 @@ def dataset_report(root: str | Path) -> dict:
                    "clean_scenario_groups": sum(per_split[sp]["clean_groups"] for sp in SPLITS),
                    "samples": n_samples, "clean_samples": n_clean, "certified_clean_samples": n_cert,
                    "lateral_certified_clean_samples": n_lat_cert,
+                   "clearance_mm": _clearance_stats(clearance_values),
                    "uncertified_clean_samples": n_clean - n_cert, "excluded_samples": n_samples - n_clean,
                    "samples_by_phase": dict(phases), "clean_certificate_kinds": dict(kinds),
                    "distinct_clean_examples": len(contents),
@@ -142,6 +155,7 @@ def dataset_report(root: str | Path) -> dict:
         "run_exclusions_by_reason": dict(reasons_runs.most_common()),
         "sample_exclusion_reasons": dict(sample_reasons.most_common()),
         "run_exclusion_by_factor_bin": by_factor,
+        "clearance_mm_by_run": clearance_by_run,
         "run_exclusion_by_turn_radius_x_clearance": {k: _rate(v[1], v[0]) for k, v in sorted(pairs.items())},
         "excluded_runs": [{"scenario_id": r["scenario_id"], "split": r["split"], "failures": r.get("run_failures"),
                            "bins": by_id[r["scenario_id"]]["bins"], "n_samples": r.get("n_samples", 0)}
@@ -158,6 +172,7 @@ def main_report(a) -> int:
     Path(a.corpus, "dataset_report.json").write_text(json.dumps(rep, indent=1))
     t = rep["totals"]
     print(json.dumps(t, indent=1))
+    print(f"clearance_mm: {t['clearance_mm']}")
     for f, rows in rep["run_exclusion_by_factor_bin"].items():
         print(f"{f}: " + ", ".join(f"{k} {v['excluded']}/{v['runs']} {v['exclusion_rate_wilson95']}" for k, v in rows.items()))
     print(f"-> {Path(a.corpus, 'dataset_report.json')}")

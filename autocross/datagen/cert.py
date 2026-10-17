@@ -286,13 +286,13 @@ def domain_violations(c: dict, q: dict | None) -> int:
 # reaches an implied minimum radius of 6.55 m over 40 seeds (p05 6.72 m, 30 % below 9 m), so a
 # radius-9 domain is NOT sound for closed courses.
 #   domain                     r_min  y_max  r_h      terminal cap sqrt(a_lat*r_h)  sound for
-#   family bins (shipped)       9.0    4.00   2.550 m  4.096 m/s                    open only
-#   gen-track, open only        9.0    3.25   3.230 m  4.613 m/s                    open only
-#   gen-track union (measured)  6.5    3.25   2.078 m  3.700 m/s                    open + closed
-#   gen-track union + margin    6.0    3.25   1.809 m  3.452 m/s                    open + closed
+#   family bins (historical)    9.0    4.00   2.550 m  4.096 m/s                    open only
+#   gen-track, open only        9.0   3.25   3.230 m  4.613 m/s                    open only
+#   gen-track union (measured)  6.5   3.25   2.078 m  3.700 m/s                    open + closed
+#   gen-track union + margin    6.0   3.25   1.809 m  3.452 m/s                    open + closed
 # Change these three numbers and nothing else: `expert.py`, `steer.py` and the validator all read
 # `DOMAIN_HORIZON_MM`, and a corpus regenerated with the new value re-validates against it.
-DOMAIN_R_MIN_M = 9.0
-DOMAIN_Y_MAX_M = 4.0
+DOMAIN_R_MIN_M = 6.0
+DOMAIN_Y_MAX_M = 3.25
 DOMAIN_R_SW_M = 15
 DOMAIN_HORIZON_MM = domain_horizon_mm(DOMAIN_R_MIN_M, DOMAIN_Y_MAX_M, DOMAIN_R_SW_M)

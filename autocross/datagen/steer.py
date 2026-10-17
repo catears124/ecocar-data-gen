@@ -222,9 +222,14 @@ def wOb(c: dict, d: int, si: int) -> int:
         return 1000 - ramp(1000, si - d - hold, rout)
     return 0
 
-def rawOffAt(c: dict, q: dict, si: int) -> int:
-    """Combine obstacle offsets by the first strictly largest weight."""
-    best_w, best_off = 0, 0
+def rawPlanAt(c: dict, q: dict, si: int) -> tuple[int, int, int, int, int] | None:
+    """Return the obstacle supplying the raw plan at ``si``.
+
+    The selector is deliberately the same first-strictly-largest-weight fold as
+    ``rawOffAt``.  The returned tuple is ``(d, lmin, lmax, side, amp)``.
+    """
+    best_w = 0
+    best = None
     for ob in q["base"]["obstacles"]:
         if not isinstance(ob, list) or len(ob) != 3:
             continue
@@ -232,8 +237,15 @@ def rawOffAt(c: dict, q: dict, si: int) -> int:
         w = wOb(c, d, si)
         side, amp = sideAmp(q, d, lmin, lmax)
         if best_w < w:
-            best_w, best_off = w, offOb(c, d, side, amp, si)
-    return best_off
+            best_w = w
+            best = (d, lmin, lmax, side, amp)
+    return best
+
+
+def rawOffAt(c: dict, q: dict, si: int) -> int:
+    """Combine obstacle offsets by the first strictly largest weight."""
+    plan = rawPlanAt(c, q, si)
+    return 0 if plan is None else offOb(c, plan[0], plan[3], plan[4], si)
 
 
 def halfw(c: dict) -> int:
@@ -257,10 +269,30 @@ def clampAt(c: dict, q: dict, i: int, value: int) -> int:
 
 def offAt(c: dict, q: dict, si: int, i: int) -> int:
     return clampAt(c, q, i, rawOffAt(c, q, si))
+def clearAt(c: dict, q: dict, si: int, i: int, offset: int | None = None) -> int:
+    """Certified integer distance to the nearest forbidden boundary at one station."""
+    off = offAt(c, q, si, i) if offset is None else offset
+    low, high = lo(c, q, i), hi(c, q, i)
+    plan = rawPlanAt(c, q, si)
+    hold = c["lon"]["hold"]
+    if plan is not None and plan[0] - hold <= si <= plan[0] + hold:
+        _, lmin, lmax, side, _ = plan
+        if side == 1:
+            return min(off - (lmax + halfw(c) + c["margin"]), high - off)
+        if side == -1:
+            return min((lmin - halfw(c) - c["margin"]) - off, off - low)
+    return min(off - low, high - off)
+
+
+def clears(c: dict, q: dict, offsets: list[int] | None = None) -> list[int]:
+    xs = offs(c, q) if offsets is None else offsets
+    return [clearAt(c, q, si, i, x) for i, (si, x) in enumerate(zip(q["base"]["s"], xs))]
 
 
 def offs(c: dict, q: dict) -> list[int]:
     return [offAt(c, q, si, i) for i, si in enumerate(q["base"]["s"])]
+
+
 
 
 def secondAt(xs: list[int], i: int) -> int:
@@ -306,21 +338,22 @@ def hasNoGap(c: dict, q: dict) -> bool:
             return True
     return False
 
-def _plan(c: dict, q: dict) -> tuple[list[int], list[int], list[int], list[int], list[int]]:
+def _plan(c: dict, q: dict) -> tuple[list[int], list[int], list[int], list[int], list[int], list[int]]:
     side_list, amp_list = sides(q), amps(q)
     off_list = offs(c, q)
+    clear_list = clears(c, q, off_list)
     curv_list = curvs(q, off_list)
-    return side_list, amp_list, off_list, curv_list, steers(c, curv_list)
+    return side_list, amp_list, off_list, clear_list, curv_list, steers(c, curv_list)
 def decide(c: dict, q: dict | None) -> dict:
     """Recompute the complete integer lateral decision for the quantised input."""
     if not well_formed(c, q):
-        return {"kind": KIND_INVALID, "side": [], "amp": [], "off": [], "curv": [], "steer": []}
-    side_list, amp_list, off_list, curv_list, steer_list = _plan(c, q)
+        return {"kind": KIND_INVALID, "side": [], "amp": [], "off": [], "clear": [], "curv": [], "steer": []}
+    side_list, amp_list, off_list, clear_list, curv_list, steer_list = _plan(c, q)
     return {"kind": KIND_NO_GAP if hasNoGap(c, q) else KIND_PLAN_OK, "side": side_list,
-            "amp": amp_list, "off": off_list, "curv": curv_list, "steer": steer_list}
+            "amp": amp_list, "off": off_list, "clear": clear_list, "curv": curv_list, "steer": steer_list}
 
 
 __all__ = ["CERT_MODEL", "KIND_PLAN_OK", "KIND_NO_GAP", "KIND_INVALID", "KIND_NAMES",
            "CONST_KEYS", "quantise_dict", "quantise", "quantise_from_base", "model_constants", "well_formed", "decide",
-           "rawOffAt", "halfw", "lo", "hi", "clampAt", "offAt", "offs", "secondAt", "curvAt", "curvs",
+           "rawPlanAt", "rawOffAt", "halfw", "lo", "hi", "clampAt", "offAt", "offs", "clearAt", "clears",
            "steerAt", "steers", "sides", "amps", "hasNoGap", "choose_side"]

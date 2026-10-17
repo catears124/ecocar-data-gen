@@ -194,6 +194,103 @@ theorem off_clearance_hold
       exact Steer.clamp_noop_in_hold _ _ _ htarget.1 htarget.2
     rw [hplan, hn]
     exact Or.inr ⟨hTR.2.2.1, by simpa [hTR.2.2.1] using ht.2.2⟩
+/-! Clearance values use the same integer boundary expressions as `Steer.clearAt`.
+The hypotheses below separate the arithmetic fact from the selector proof: the
+selector supplies the obstacle-side inequality in a hold, while clamping supplies
+the corridor inequalities everywhere. -/
+theorem clearance_hold_nonneg
+    (c : Steer.Consts) (q : Steer.Q) (i : Nat)
+    (side lmin lmax x : Int)
+    (hcorr : Steer.lo c q i ≤ x ∧ x ≤ Steer.hi c q i)
+    (hside :
+      (side = 1 ∧ lmax + Steer.halfw c + c.margin ≤ x) ∨
+      (side = -1 ∧ x ≤ lmin - Steer.halfw c - c.margin)) :
+    0 ≤ if side = 1 then
+      min (x - (lmax + Steer.halfw c + c.margin)) (Steer.hi c q i - x)
+    else if side = -1 then
+      min ((lmin - Steer.halfw c - c.margin) - x) (x - Steer.lo c q i)
+    else min (x - Steer.lo c q i) (Steer.hi c q i - x) := by
+  rcases hside with hL | hR
+  · simp [hL.1]
+    omega
+  · simp [hR.1]
+    omega
+
+theorem clearance_outside_nonneg
+    (c : Steer.Consts) (q : Steer.Q) (i : Nat) (x : Int)
+    (hcorr : Steer.lo c q i ≤ x ∧ x ≤ Steer.hi c q i) :
+    0 ≤ min (x - Steer.lo c q i) (Steer.hi c q i - x) := by
+  omega
+
+theorem clearAt_outside_nonneg
+    (c : Steer.Consts) (q : Steer.Q) (i : Nat) (si x : Int)
+    (hcorr : Steer.lo c q i ≤ x ∧ x ≤ Steer.hi c q i)
+    (hout :
+      ∀ p, Steer.rawPlanAt c q si = some p →
+        si < p.d - c.lon.hold ∨ p.d + c.lon.hold < si) :
+    0 ≤ Steer.clearAt c q si i x := by
+  cases hp : Steer.rawPlanAt c q si with
+  | none =>
+      simp [Steer.clearAt, hp]
+      exact clearance_outside_nonneg c q i x hcorr
+  | some p =>
+      have ho := hout p hp
+      rcases ho with ho | ho
+      · have hn : ¬ (p.d - c.lon.hold ≤ si ∧ si ≤ p.d + c.lon.hold) := by omega
+        simp [Steer.clearAt, hp, hn]
+        exact clearance_outside_nonneg c q i x hcorr
+      · have hn : ¬ (p.d - c.lon.hold ≤ si ∧ si ≤ p.d + c.lon.hold) := by omega
+        simp [Steer.clearAt, hp, hn]
+        exact clearance_outside_nonneg c q i x hcorr
+theorem clearAt_hold_nonneg
+    (c : Steer.Consts) (q : Steer.Q) (i : Nat) (si x : Int)
+    (p : Steer.Plan)
+    (hp : Steer.rawPlanAt c q si = some p)
+    (hhold : p.d - c.lon.hold ≤ si ∧ si ≤ p.d + c.lon.hold)
+    (hcorr : Steer.lo c q i ≤ x ∧ x ≤ Steer.hi c q i)
+    (hside :
+      (p.side = 1 ∧ p.lmax + Steer.halfw c + c.margin ≤ x) ∨
+      (p.side = -1 ∧ x ≤ p.lmin - Steer.halfw c - c.margin)) :
+    0 ≤ Steer.clearAt c q si i x := by
+  have h := clearance_hold_nonneg c q i p.side p.lmin p.lmax x hcorr hside
+  simp [Steer.clearAt, hp, hhold.1, hhold.2]
+  exact h
+theorem clearAt_nonneg_of_source
+    (c : Steer.Consts) (q : Steer.Q) (i : Nat) (si x : Int)
+    (hcorr : Steer.lo c q i ≤ x ∧ x ≤ Steer.hi c q i)
+    (hsource :
+      ∀ p, Steer.rawPlanAt c q si = some p →
+        (si < p.d - c.lon.hold ∨ p.d + c.lon.hold < si) ∨
+        ((p.d - c.lon.hold ≤ si ∧ si ≤ p.d + c.lon.hold) ∧
+          ((p.side = 1 ∧ p.lmax + Steer.halfw c + c.margin ≤ x) ∨
+           (p.side = -1 ∧ x ≤ p.lmin - Steer.halfw c - c.margin)))) :
+    0 ≤ Steer.clearAt c q si i x := by
+  cases hp : Steer.rawPlanAt c q si with
+  | none =>
+      simp [Steer.clearAt, hp]
+      exact clearance_outside_nonneg c q i x hcorr
+  | some p =>
+      rcases hsource p hp with hout | ⟨hin, hside⟩
+      · exact clearAt_outside_nonneg c q i si x hcorr (fun p' hp' => by
+          simp_all)
+      · exact clearAt_hold_nonneg c q i si x p hp hin hcorr hside
+
+theorem clearAt_plan_ok_nonneg
+    (c : Steer.Consts) (q : Steer.Q) (i : Nat) (si x : Int)
+    (hw : Steer.wellFormed c q = true)
+    (hkind : (Steer.decide c q).kind = Steer.kindPlanOk)
+    (hcorr : Steer.lo c q i ≤ x ∧ x ≤ Steer.hi c q i)
+    (hsource :
+      Steer.hasNoGap c q = false →
+      ∀ p, Steer.rawPlanAt c q si = some p →
+        (si < p.d - c.lon.hold ∨ p.d + c.lon.hold < si) ∨
+        ((p.d - c.lon.hold ≤ si ∧ si ≤ p.d + c.lon.hold) ∧
+          ((p.side = 1 ∧ p.lmax + Steer.halfw c + c.margin ≤ x) ∨
+           (p.side = -1 ∧ x ≤ p.lmin - Steer.halfw c - c.margin)))) :
+    0 ≤ Steer.clearAt c q si i x := by
+  have hno : Steer.hasNoGap c q = false :=
+    (Steer.decide_plan_ok_iff c q hw).mp hkind
+  exact clearAt_nonneg_of_source c q i si x hcorr (hsource hno)
 
 /-- Outside an obstacle hold window we make no obstacle-clearance claim:
 clamping still keeps the offset in the available lateral corridor. -/

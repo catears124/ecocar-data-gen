@@ -367,10 +367,20 @@ LATERAL_CORRUPTIONS = {
 
 @pytest.fixture(scope="module")
 def lateral_corpus(request):
-    """Use the release-gate corpus when present; generate the normal fixture only as fallback."""
-    existing = Path(__file__).resolve().parents[2] / "work" / "final" / "smoke"
-    if (existing / "index.json").is_file():
-        return existing
+    """Use the newest schema-compatible release corpus; generate a fixture otherwise."""
+    root = Path(__file__).resolve().parents[2] / "work"
+    for existing in (root / "final2" / "smoke", root / "final" / "smoke"):
+        idx_path = existing / "index.json"
+        if not idx_path.is_file():
+            continue
+        try:
+            idx = json.loads(idx_path.read_text())
+            sample_path = existing / idx["scenarios"][0]["files"]["samples"]["path"]
+            first = next(x for x in sample_path.read_text().splitlines() if x.strip())
+            if "clearance_mm" in json.loads(first)["target"]["lateral"]:
+                return existing
+        except (KeyError, IndexError, StopIteration, OSError, json.JSONDecodeError):
+            pass
     return request.getfixturevalue("corpus")
 
 
@@ -645,7 +655,7 @@ def test_loader_returns_only_policy_input_and_marks_certified_target(corpus):
         assert st["certified"] and st["model"] == cert.CERT_MODEL and "longitudinal" in st["scope"]
         assert set(tgt) == {"schema", "longitudinal", "lateral", "uncertified"} and meta["clean"]
         assert set(tgt["lateral"]) == {"model", "kind", "certified", "side", "amp", "offset_mm",
-                                       "curvature_micro", "steer_milli"}
+                                       "clearance_mm", "curvature_micro", "steer_milli"}
         assert tgt["lateral"]["certified"] is True and tgt["lateral"]["kind"] == "plan_ok"
     arr = to_arrays(ex)
     assert arr["x"].shape[0] == len(ex) and np.isfinite(arr["x"]).all() and arr["certified"].all()

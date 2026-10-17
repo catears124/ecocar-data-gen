@@ -24,11 +24,19 @@ structure Q where
   lat : Int
 deriving Repr, DecidableEq, FromJson, ToJson
 
+structure Plan where
+  d : Int
+  lmin : Int
+  lmax : Int
+  side : Int
+  amp : Int
+
 structure Decision where
   kind : Nat
   side : List Int
   amp : List Int
   off : List Int
+  clear : List Int
   curv : List Int
   steer : List Int
 deriving Repr, DecidableEq, FromJson, ToJson
@@ -99,16 +107,23 @@ def wOb (c : Consts) (d si : Int) : Int :=
     1000 - ramp 1000 (si - d - c.lon.hold) c.lon.ramp_out
   else 0
 
-def rawOffAt (c : Consts) (q : Q) (si : Int) : Int :=
-  let rec go : Int → Int → List (List Int) → Int
-    | _, bestOff, [] => bestOff
-    | best, bestOff, ob :: tl => match Cert.obsTriple ob with
+def rawPlanAt (c : Consts) (q : Q) (si : Int) : Option Plan :=
+  let rec go : Int → Option Plan → List (List Int) → Option Plan
+    | _, best, [] => best
+    | bestW, best, ob :: tl => match Cert.obsTriple ob with
       | some (d, lmin, lmax) =>
           let w := wOb c d si
           let sa := sideAmp q d lmin lmax
-          if best < w then go w (offOb c d sa.1 sa.2 si) tl else go best bestOff tl
-      | none => go best bestOff tl
-  go 0 0 q.base.obstacles
+          if bestW < w then
+            go w (some { d := d, lmin := lmin, lmax := lmax, side := sa.1, amp := sa.2 }) tl
+          else go bestW best tl
+      | none => go bestW best tl
+  go 0 none q.base.obstacles
+
+def rawOffAt (c : Consts) (q : Q) (si : Int) : Int :=
+  match rawPlanAt c q si with
+  | some p => offOb c p.d p.side p.amp si
+  | none => 0
 
 def halfw (c : Consts) : Int := c.lon.veh_width / 2
 def lo (c : Consts) (q : Q) (i : Nat) : Int :=
@@ -123,6 +138,21 @@ def offAt (c : Consts) (q : Q) (si : Int) (i : Nat) : Int :=
   clampAt c q i (rawOffAt c q si)
 def offs (c : Consts) (q : Q) : List Int :=
   (List.range q.base.s.length).map (fun i => offAt c q (q.base.s.getD i 0) i)
+def clearAt (c : Consts) (q : Q) (si : Int) (i : Nat) (x : Int) : Int :=
+  let low := lo c q i
+  let high := hi c q i
+  match rawPlanAt c q si with
+  | some p =>
+      if p.d - c.lon.hold ≤ si ∧ si ≤ p.d + c.lon.hold then
+        if p.side = 1 then min (x - (p.lmax + halfw c + c.margin)) (high - x)
+        else if p.side = -1 then min ((p.lmin - halfw c - c.margin) - x) (x - low)
+        else min (x - low) (high - x)
+      else min (x - low) (high - x)
+  | none => min (x - low) (high - x)
+
+def clears (c : Consts) (q : Q) (xs : List Int) : List Int :=
+  (List.range q.base.s.length).map (fun i =>
+    clearAt c q (q.base.s.getD i 0) i (xs.getD i 0))
 
 def secondAt (xs : List Int) (i : Nat) : Int :=
   if i = 0 ∨ i + 1 ≥ xs.length then 0
@@ -150,13 +180,14 @@ def hasNoGap (c : Consts) (q : Q) : Bool :=
     | none => true)
 
 def decide (c : Consts) (q : Q) : Decision :=
-  if !(wellFormed c q) then ⟨kindInvalid, [], [], [], [], []⟩
+  if !(wellFormed c q) then ⟨kindInvalid, [], [], [], [], [], []⟩
   else
     let os := offs c q
+    let cl := clears c q os
     let cs := curvs q os
     let ss := steers c cs
-    if hasNoGap c q then ⟨kindNoGap, sides q, amps q, os, cs, ss⟩
-    else ⟨kindPlanOk, sides q, amps q, os, cs, ss⟩
+    if hasNoGap c q then ⟨kindNoGap, sides q, amps q, os, cl, cs, ss⟩
+    else ⟨kindPlanOk, sides q, amps q, os, cl, cs, ss⟩
 
 /-! Domain and branch facts. -/
 theorem wellFormed_off_length (c : Consts) (q : Q) (h : wellFormed c q = true) :

@@ -108,7 +108,7 @@ def quantiseL (po : Json) : Option Steer.Q := do
 
 def decideOptL (c : Steer.Consts) : Option Steer.Q → Steer.Decision
   | some q => Steer.decide c q
-  | none => ⟨Steer.kindInvalid, [], [], [], [], []⟩
+  | none => ⟨Steer.kindInvalid, [], [], [], [], [], []⟩
 
 def kindName : Nat → String
   | 0 => "greatest_safe" | 1 => "min_violation" | 2 => "no_feasible_gap" | 3 => "invalid_input" | _ => "unknown"
@@ -158,26 +158,29 @@ structure LateralRec where
   side : List Int
   amp : List Int
   off : List Int
+  clear : List Int
   curv : List Int
   steer : List Int
 
 def parseLateral (j : Json) : Except String LateralRec := do
   let o ← j.getObj?
-  if o.size != 8 then throw "lateral certificate has unexpected fields"
+  if o.size != 9 then throw "lateral certificate has unexpected fields"
   let model ← j.getObjValAs? String "model"
   let kind ← j.getObjValAs? String "kind"
   let certified ← j.getObjValAs? Bool "certified"
   let side ← intArr j "side"
   let amp ← intArr j "amp"
   let off ← intArr j "offset_mm"
+  let clear ← intArr j "clearance_mm"
   let curv ← intArr j "curvature_micro"
   let steer ← intArr j "steer_milli"
-  pure { model, kind, certified, side, amp, off, curv, steer }
+  pure { model, kind, certified, side, amp, off, clear, curv, steer }
 
 def LateralRec.matches (r : LateralRec) (d : Steer.Decision) : Bool :=
   r.kind == kindNameL d.kind && r.side == d.side && r.amp == d.amp && r.off == d.off &&
-  r.curv == d.curv && r.steer == d.steer &&
+  r.clear == d.clear && r.curv == d.curv && r.steer == d.steer &&
   r.certified == (d.kind == Steer.kindPlanOk)
+
 
 def CertRec.matches (r : CertRec) (d : Cert.Decision) : Bool :=
   r.kind == kindName d.kind && r.a == d.a && r.b1 == d.b1 && r.b0 == d.b0 && r.B0 == d.B0 &&
@@ -291,7 +294,7 @@ def checkSample (r : Run) (c : Cert.Consts) (cL : Steer.Consts) (ri i : Nat) (j 
     | .error _ => st := st.fail "records_parse" sid
     | .ok rc =>
       let d := decideOptL cL qL
-      recordedL := (kindIdL rc.kind).map fun k => ⟨k, rc.side, rc.amp, rc.off, rc.curv, rc.steer⟩
+      recordedL := (kindIdL rc.kind).map fun k => ⟨k, rc.side, rc.amp, rc.off, rc.clear, rc.curv, rc.steer⟩
       st := { st with lateralChecked := st.lateralChecked + 1 }
       if rc.model != "steer-1" then st := st.fail "lateral_cert_model_and_constants" sid
       if rc.matches d then verifiedLat := d.kind == Steer.kindPlanOk
@@ -431,7 +434,7 @@ def constsLit (c : Cert.Consts) : String :=
   s!"ramp_out := {intLit c.ramp_out}, r_sw_m := {intLit c.r_sw_m}, veh_width := {intLit c.veh_width} }"
 def qLLit (q : Steer.Q) : String := s!"\{ base := {qLit q.base}, lat := {intLit q.lat} }"
 def decLLit (d : Steer.Decision) : String :=
-  s!"⟨{d.kind}, {listLit d.side}, {listLit d.amp}, {listLit d.off}, {listLit d.curv}, {listLit d.steer}⟩"
+  s!"⟨{d.kind}, {listLit d.side}, {listLit d.amp}, {listLit d.off}, {listLit d.clear}, {listLit d.curv}, {listLit d.steer}⟩"
 def constsLLit (c : Steer.Consts) : String :=
   s!"\{ lon := {constsLit c.lon}, margin := {intLit c.margin}, step := {intLit c.step}, kappa_max := {intLit c.kappa_max} }"
 

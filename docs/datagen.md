@@ -122,13 +122,13 @@ the squared speeds b_i ≥ 0 at the preview stations, subject to:
   three constants `cert.DOMAIN_R_MIN_M` / `DOMAIN_Y_MAX_M` / `DOMAIN_R_SW_M` — the declared domain of
   the **scored generator** (`gen-track`), not the training family's bins. The value is one line and
   every consumer (`expert.py`, `steer.py`, the validator) reads it from there; changing it requires
-  regenerating the corpus. Measured options, from the same `domain_horizon_mm` formula:
-  family 9.0/4.00 → 2.550 m (shipped, sound for open courses only), `gen-track` open 9.0/3.25 →
-  3.230 m (sound for open courses only), union 6.5/3.25 → 2.078 m, union with margin 6.0/3.25 →
-  1.809 m (both sound for closed courses too). The distinction matters because `gen-track --closed`
-  reaches an implied minimum radius of **6.55 m** (measured over 40 seeds; p05 6.72 m; 30 % below
-  the 9 m hairpin) — a radius-9 domain is therefore *unsound* if loop courses can be scored. The
-  validator checks the assumption against every *visible* station (`domain_violations`).
+  regenerating the corpus. The shipped sound union is `r_min=6.0 m`, `y_max=3.25 m`, `R_SW=15 m`,
+  giving `r_h = 1.809 m` (`DOMAIN_HORIZON_MM = 1809`). For reference, the measured alternatives
+  are family 9.0/4.00 → 2.550 m, `gen-track` open 9.0/3.25 → 3.230 m, and union 6.5/3.25 →
+  2.078 m. The distinction matters because `gen-track --closed` reaches an implied minimum radius
+  of **6.55 m** (measured over 40 seeds; p05 6.72 m; 30 % below the 9 m hairpin), so radius 9 m
+  is *unsound* if loop courses can be scored. Flip instructions: change these three constants only,
+  regenerate the corpus, then rerun `data-validate`; all consumers derive the horizon from them.
 - **Budgets:** b_{i+1} ≤ b_i + 2·a_acc·Δs and b_i ≤ b_{i+1} + 2·a_brk·Δs.
 - **Start:** b_0 = v².
 
@@ -198,7 +198,7 @@ Sample record (`autocross.datagen.sample`, schema 2). SI units, vehicle frame x 
 | `sample_id` | `<scenario_id>:<step:05d>` (stable) |
 | `scenario_id`, `group_id`, `family`, `split`, `backend`, `step`, `t` | identity and bookkeeping (not policy inputs) |
 | `policy_observation` | **the only policy input** (`autocross.datagen.policy_observation/1`): `speed, vx, vy, yaw_rate, ax, ay, steer, throttle, brake` and `road` = `valid, range_m, lateral_offset, heading_error, curvature, width_left/right, dist_to_left/right_boundary`, the preview arrays and points, and the visible `obstacles` |
-| `target` | `autocross.datagen.training_target/1`. `longitudinal` is the CERTIFIED block: `model, kind, certified, accel_mm_s2, b1/b0/B0_mm2_s2`, or `null` in the approach phase. `lateral` is the CERTIFIED `steer-1` block: `model, kind, certified, side, amp, offset_mm, curvature_micro, steer_milli`; `uncertified` holds `steer, throttle, brake, target_speed, path, path_frame` |
+| `target` | `autocross.datagen.training_target/1`. `longitudinal` is the CERTIFIED block: `model, kind, certified, accel_mm_s2, b1/b0/B0_mm2_s2`, or `null` in the approach phase. `lateral` is the CERTIFIED `steer-1` block: `model, kind, certified, side, amp, offset_mm, clearance_mm, curvature_micro, steer_milli`; `clearance_mm` is the nearest forbidden-boundary distance at each station. `uncertified` holds `steer, throttle, brake, target_speed, path, path_frame` |
 | `expert` | `phase`, `status`, planner diagnostics (`debug`: outputs, not inputs) |
 | `privileged` | `observation`: `t, step, x, y, yaw, progress, lap, timing_started, cones, road.corners, road.finish_distance`. `oracle`: phase, distances to corner/obstacle/hand-over, true obstacle extent. Evaluation only |
 | `applied` | actuator values on the first and last physics tick of the period, `command_held`, `command_clipped` |
@@ -300,7 +300,9 @@ recomputation (`tests/test_certification.py`).
 | `Corpus.SteerFeas.clamp_abs_le_gen` | `lo ≤ 0 → 0 ≤ hi → Cert.iabs (clampAt c q i x) ≤ Cert.iabs x`: the clamp never increases the deviation. |
 | `Corpus.SteerFeas.target_in_corridor_left` / `_right` | The chosen gap-midpoint target lies inside the corridor on the chosen side (ceiling-division rounding handled), given the branch's gap condition. |
 | `Corpus.SteerFeas.off_clearance_hold` | In an obstacle's hold window, with the declared `sideAmp` branch, the gap condition, the plan hypothesis `offAt c q si i = clampAt c q i (side * amp)` and explicit lateral-placement/even-width hypotheses, the planned offset clears the obstacle extent by at least `margin + veh_width/2` on the chosen side. |
-| `Corpus.SteerFeas.off_clearance_ramps_outside` | Outside a hold window the corridor part of the same statement holds (no obstacle claim is made there). |
+| `Corpus.SteerFeas.clearance_hold_nonneg` / `clearAt_hold_nonneg` | The new per-station `clear` expression is non-negative in a supplying obstacle's hold when the `off_clearance_hold` side inequality and corridor bounds hold. |
+| `Corpus.SteerFeas.clearAt_outside_nonneg` / `clearAt_plan_ok_nonneg` | Outside a supplying obstacle's hold, and in the plan-ok source branch, `clear` is non-negative from the corridor clamp or the corresponding hold-side inequality. |
+| `Corpus.SteerFeas.off_clearance_ramps_outside` | Outside a hold window the corridor part of the same statement holds; the new `clear` field uses `min(offset-lo, hi-offset)` there. |
 | `Corpus.SteerRamp.n_full` | `n L L = L * L * L` for the ramp's cubic numerator `n x L = 3*x*x*L - 2*x*x*x`. |
 | `Corpus.SteerRamp.ramp_full` | `L ≠ 0 → ramp A L L = A`: the ramp reaches exactly its amplitude at the end of the window. |
 | `Corpus.SteerRamp.n_shift` | `n x L = x*x*(3*L - 2*x)`: the ramp's cubic numerator factored so its sign is decidable from `x ≤ L`. |
