@@ -8,9 +8,17 @@ runs/
 # event-day courses stay private until released
 tracks/private
 tracks/*.png
-# team submissions (judges score them from here)
-teams
+# team submissions: judges score them from the folder teams/, other teams' work stays private,
+# but this repository *is* a submission -- our own controller is tracked deliberately.
+teams/*
+!teams/certline.py
 # generated imitation-data corpora and Lean build output
 datasets/
 lean/.lake/
 *.manifest.lean/
+.lake/
+datasets/*.zip
+.vscode/
+.idea/
+.vs/
+.fleet/
