@@ -77,3 +77,12 @@ import Corpus
 #print axioms Corpus.Bellman.value_unique
 #print axioms Corpus.Dp.dp_optimal
 #print axioms Corpus.Dp.transition_certificate
+#print axioms Corpus.Dp.no_policy_beats_from
+#print axioms Corpus.Dp.bestCost_ge_of_le
+#print axioms Corpus.Dp.bestCost_eq_of_min
+#print axioms Corpus.Dp.greedyTraj_attains
+#print axioms Corpus.Dp.toy_terminal_no_actions
+#print axioms Corpus.Dp.toy_nonempty
+#print axioms Corpus.Dp.toy_dp_eq_enumeration
+#print axioms Corpus.Dp.toy_optimal_exhaustive
+#print axioms Corpus.Dp.toy_extract_optimal
