@@ -16,6 +16,13 @@ from autocross.runner import run
 
 CTRL = "teams/certline.py"
 
+# `teams/` is git-ignored (submission directory), so this module only applies to
+# checkouts that actually hold the controller; skip instead of erroring elsewhere.
+pytestmark = pytest.mark.skipif(
+    not (Path(__file__).resolve().parents[1] / CTRL).exists(),
+    reason=f"{CTRL} is git-ignored and absent from this checkout",
+)
+
 
 def _run(cfg, root, tmp_path, track="practice_basic", ctrl=CTRL, **kw):
     return run(cfg, str(root / ctrl), str(root / "tracks" / f"{track}.yaml"),
