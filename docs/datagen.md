@@ -118,11 +118,17 @@ the squared speeds b_i ≥ 0 at the preview stations, subject to:
 - **Grip:** b_i · κ̄_i ≤ a_lat·10⁹. κ̄_i bounds the planned path's curvature: road curvature, plus
   the sidestep curvature 6|y|/R_SW², divided by (1 − |κ||y|).
 - **Speed cap:** b_i ≤ v_max², with v_max the vehicle's `max_speed`.
-- **Terminal constraint:** b_n ≤ a_lat · r_h. Here r_h = `cert.domain_horizon_mm` is the effective
-  radius of the tightest planned path the **declared scenario domain** allows at any station:
-  turn radius ≥ 9 m together with a sidestep of half the widest road (8 m), giving r_h = 2.55 m.
-  Every unseen station of every in-domain road therefore has cap ≥ a_lat·r_h. The validator
-  checks this domain assumption against every *visible* station (`domain_violations`).
+- **Terminal constraint:** b_n ≤ a_lat · r_h, with r_h = `cert.DOMAIN_HORIZON_MM`, derived from the
+  three constants `cert.DOMAIN_R_MIN_M` / `DOMAIN_Y_MAX_M` / `DOMAIN_R_SW_M` — the declared domain of
+  the **scored generator** (`gen-track`), not the training family's bins. The value is one line and
+  every consumer (`expert.py`, `steer.py`, the validator) reads it from there; changing it requires
+  regenerating the corpus. Measured options, from the same `domain_horizon_mm` formula:
+  family 9.0/4.00 → 2.550 m (shipped, sound for open courses only), `gen-track` open 9.0/3.25 →
+  3.230 m (sound for open courses only), union 6.5/3.25 → 2.078 m, union with margin 6.0/3.25 →
+  1.809 m (both sound for closed courses too). The distinction matters because `gen-track --closed`
+  reaches an implied minimum radius of **6.55 m** (measured over 40 seeds; p05 6.72 m; 30 % below
+  the 9 m hairpin) — a radius-9 domain is therefore *unsound* if loop courses can be scored. The
+  validator checks the assumption against every *visible* station (`domain_violations`).
 - **Budgets:** b_{i+1} ≤ b_i + 2·a_acc·Δs and b_i ≤ b_{i+1} + 2·a_brk·Δs.
 - **Start:** b_0 = v².
 

@@ -47,9 +47,9 @@ BRAKE_DEADBAND = 0.2     # m/s^2 of demanded deceleration left to drag before br
 # Declared scenario domain (the only knowledge about the road beyond the preview): tightest turn
 # radius and widest road of the family spec; the largest sidestep offset is half the widest road.
 _FAMILY = get_family("brake_turn_obstacle")
-DOMAIN_R_MIN_M = min(b.lo for b in _FAMILY.factor("turn_radius_m").bins)
-DOMAIN_Y_MAX_M = max(b.hi for b in _FAMILY.factor("road_width_m").bins) / 2.0
-HORIZON_RADIUS_MM = cert.domain_horizon_mm(DOMAIN_R_MIN_M, DOMAIN_Y_MAX_M, R_SW)
+DOMAIN_R_MIN_M = cert.DOMAIN_R_MIN_M
+DOMAIN_Y_MAX_M = cert.DOMAIN_Y_MAX_M
+HORIZON_RADIUS_MM = cert.DOMAIN_HORIZON_MM
 
 PHASE_APPROACH, PHASE_EXPERT = 0, 1
 STATUS_OK, STATUS_APPROACH, STATUS_NO_GAP, STATUS_ROAD_INVALID, STATUS_OVER_BUDGET = 0, 1, 2, 3, 4

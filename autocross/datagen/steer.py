@@ -37,19 +37,9 @@ _HOLD_M = 3.0
 _RAMP_IN_M = 18.0
 _RAMP_OUT_M = 15.0
 _R_SW_M = 15
-# The declared domain constants come from the scenario family spec, NOT from `expert`: the
-# expert imports this module, so importing it back would be a cycle (and a silently wrong
-# horizon fallback would make `model_constants` disagree with the generator/validator).
-def _horizon_mm() -> int:
-    from autocross.datagen.spec import get_family
-
-    fam = get_family("brake_turn_obstacle")
-    r_min = min(b.lo for b in fam.factor("turn_radius_m").bins)
-    y_max = max(b.hi for b in fam.factor("road_width_m").bins) / 2.0
-    return cert.domain_horizon_mm(r_min, y_max, _R_SW_M)
-
-
-_HORIZON_MM = _horizon_mm()
+# The declared domain constants have a single source of truth in `cert` (which this module may
+# import freely). The family bins are training design, not the scored domain.
+_HORIZON_MM = cert.DOMAIN_HORIZON_MM
 
 CONST_KEYS = cert.CONST_KEYS
 
