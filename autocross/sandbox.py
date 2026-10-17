@@ -292,10 +292,12 @@ class ControllerProcess:
         self.drive_cpu_s = float("nan")
         self._cpu0 = None
         try:
-            n = psutil.cpu_count(logical=True) or 1
-            self.cores = list(range(max(n - cores, 0), n))  # leave core 0 for the simulator/harness
+            # the cores this process may use (a container's cpuset can be smaller than the host)
+            allowed = (sorted(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity")
+                       else list(range(psutil.cpu_count(logical=True) or 1)))
+            self.cores = allowed[-cores:] if len(allowed) > cores else allowed  # leave the first core(s) for the simulator/harness
             self.ps.cpu_affinity(self.cores)
-        except (AttributeError, psutil.Error):
+        except (AttributeError, OSError, psutil.Error):
             self.cores = []
         kind, _, payload = self._recv(float(budget.get("init_timeout_s", 60.0)))
         if kind != "ready":

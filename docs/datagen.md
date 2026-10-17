@@ -28,7 +28,7 @@ how fast to corner and which side of the obstacle to use.
 |---|---|---|
 | `turn_radius_m` | m | tight [9, 14), medium [14, 22), open [22, 35] |
 | `turn_direction` | - | left, right |
-| `preview_m` (= `road_model.range_m`) | m | short [15, 25), nominal [25, 45), long [45, 60] |
+| `preview_m` (= `road_model.range_m`) | m | short [15, 25), nominal [25, 40] (event: 40 m; shorter = robustness-sweep sight loss) |
 | `approach_speed_mps` (speed at hand-over) | m/s | low [8, 12), mid [12, 16), high [16, 20] |
 | `obstacle_side` (relative to the turn) | - | inside, outside |
 | `obstacle_clearance_m` (obstacle inner edge to opposite boundary) | m | tight [2.8, 3.3), moderate [3.3, 3.9), wide [3.9, 4.6] |
@@ -100,9 +100,14 @@ re-runs it on the policy observation **with every privileged field removed**
 (`records.policy_to_observation`) and requires the complete output to match: path, path frame,
 steering, pedals, target speed and certificate.
 
-Before hand-over, a scripted speed hold brings the car to the declared approach speed. It uses
-privileged scenario configuration and course progress. Those samples are phase `approach`,
-carry no certificate and are never clean.
+Before hand-over, a scripted speed hold brings the car to the declared approach speed: a P law
+far from the target, and within −0.5…+3 m/s an incremental PI on the applied throttle, damped by
+`obs.ax`, which removes the steady-state offset drag causes in CARLA. It uses privileged scenario
+configuration and course progress. Those samples are phase `approach`, carry no certificate and
+are never clean.
+
+Generation runs with the event's compute budget (`compute_budget.mode: enforce`: 1 core, 50 ms
+deadline). A step that overruns holds the previous command, exactly as in the event.
 
 **Longitudinal decision: certified.** Model M = `cert-2` (`autocross/datagen/cert.py`, mirrored
 line by line by `lean/Corpus/Cert.lean`). It works on the policy observation quantised to
