@@ -1,3 +1,50 @@
+# EcoCAR autocross: certified data generation and a submitted controller
+
+This repository is a hackathon submission with two deliverables, plus the harness they were built against.
+
+**1. A controller** — `teams/certline.py`, the single-file submission for the autocross evaluation. It vendors two integer decision laws from the certified work below in their exact arithmetic (`cert-2` longitudinal, `steer-1` lateral) and adds a minimum-curvature racing line constrained to stay inside the *certified clearance interval*, obstacle memory, and delay / steering-bias / grip-compensation layers. NumPy only, no GPU, no file I/O, one `Controller` subclass, ~49 KB. It is tracked in this repository (`.gitignore` keeps other teams' folders private but ships ours), and the release `controller-submission` carries the same file as its only asset.
+
+**2. A certified contrastive imitation corpus with Lean 4 proofs** — the generator and certificate machinery in `autocross/datagen/`, the models and proofs in `lean/`, and the specification in `docs/datagen.md`. The Lean side proves properties of the decision laws (greatest-safe, minimum-violation, branch completeness of the lateral plan), corpus properties (split/coverage/mirror), a pure-pursuit tracker error bound, and — over a discrete lattice — a nonvacuous **travel-time optimality** result for the joint offset/speed dynamic program (`Corpus.Dp.speed_dp_optimal`). What is proven, what is measured and what is trusted is split explicitly in [`SUBMISSION.md`](SUBMISSION.md).
+
+The rest of this README is the harness manual: setup, commands, configuration, scoring and the data-generation pipeline.
+
+---
+
+## Verify the submission in three commands
+
+```powershell
+git clone https://github.com/catears124/ecocar-data-gen && cd ecocar-data-gen
+python -m pip install -r requirements.txt pytest
+python -m autocross selftest -c teams/certline.py            # every public course, bicycle backend
+python -m autocross selftest -c teams/certline.py --carla    # the same courses again on CARLA 0.9.16
+```
+
+`selftest` also checks the sandbox rules (no writes, no sockets, no `ctypes`, no course data from disk) and reports finishes, penalties, step time and technical points. CARLA is optional for the first command; only the `--carla` pass needs a server and a GPU.
+
+## What is proven, and what is measured
+
+| | Where | What it says |
+|---|---|---|
+| **Proven in Lean 4** | `lean/Corpus/` — `Cert.lean`, `Steer.lean`, `Properties.lean`, `Mirror.lean`, `Track.lean`, `Dp.lean`, `Bellman.lean` | Properties of the certified integer decisions (greatest-safe and minimum-violation longitudinal outputs, lateral branch completeness and gap-side rule), corpus invariants (split separation, coverage, mirror involutivity), a tracker error bound, and Bellman/travel-time optimality of the joint offset-and-speed DP. Theorem names are listed in [`SUBMISSION.md`](SUBMISSION.md); `cd lean && lake build` checks them. |
+| **Measured, bicycle backend, our runs** | `teams/certline.py` on the five public courses | mean **65.4 / 75** technical points, with 2 cone hits, 0 off-course and 0 missed gates; step time p99 ≈ 3.4 ms against the 50 ms deadline. On eight generated courses it has never seen: 7/7 finished, mean 65.0. The harness's own baseline pure pursuit scores 62.3 on the same five courses with 12 cones. Numbers depend on the machine — the official evaluation runs on one reference machine. |
+| **Documented corpus facts** | `docs/datagen.md`, `docs/algorithm_research_handoff.md` | 212 accepted scenarios, 184 clean runs, 29,142 clean samples over 28 scenario groups in the `v1.0.1` full bicycle corpus, with 184 contrast pairs and 154 covered cells. |
+| **Trusted, not proven** | `docs/controller_submission.md`, `SUBMISSION.md` | Tyre/acceleration budgets are declared model constants; the DP's time table is a calibration input; tracking, pedal mapping and simulator dynamics are not covered by any proof. |
+
+## Where things are
+
+| Path | What it is |
+|---|---|
+| `teams/certline.py` | **the submitted controller** |
+| `docs/controller_submission.md` | its design, certificate chain, fallback order, knobs, verification |
+| `SUBMISSION.md` | submission manifest: entry paths, hashes, commands, proven/measured/trusted, limitations |
+| `autocross/` | the harness: simulator backends, perception, metrics, scoring, sandbox, CLI |
+| `autocross/datagen/` | corpus manifest, generation, records, validation, certificates, Lean bridge |
+| `lean/` | Lean 4 models, proofs, axiom audit and compiled corpus checker |
+| `tests/` | pytest suite, including end-to-end controller runs and the plan invariant |
+| `docs/`, `config/`, `tracks/`, `controllers/` | specification, configuration, public courses, reference controllers |
+
+---
+
 # mil-sim: EcoCAR Autocross Simulation Harness
 
 A lightweight, CARLA-based simulation framework for testing autonomous **path planning and control** on autocross courses. It is built for the EcoCAR autocross hackathon and as a foundation for model-in-the-loop (MIL) and software-in-the-loop (SIL) testing with ideal ground-truth data.
