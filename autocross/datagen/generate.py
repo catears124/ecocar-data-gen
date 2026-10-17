@@ -30,7 +30,7 @@ import numpy as np
 
 from . import (GENERATOR_NAME, GENERATOR_VERSION, INDEX_SCHEMA, SAMPLE_SCHEMA, SCHEMA_VERSION, DatagenError,
                git_state)
-from . import cert
+from . import cert, steer
 from . import expert as expert_mod
 from .design import check_manifest, required_cells
 from .records import (command_to_dict, merge_observation, obs_from_dict, obs_to_dict, policy_to_observation,
@@ -56,11 +56,10 @@ def expert_identity() -> dict:
     return {"name": expert_mod.EXPERT_NAME, "version": expert_mod.EXPERT_VERSION, "class": EXPERT_CLASS,
             "source": str(EXPERT_PATH.relative_to(ROOT)).replace(os.sep, "/"), "source_sha256": file_sha256(EXPERT_PATH),
             "certificate_model": cert.CERT_MODEL, "certificate_source_sha256": file_sha256(cert.__file__),
+            "lateral_certificate_model": steer.CERT_MODEL,
+            "lateral_certificate_source_sha256": file_sha256(steer.__file__),
             "params": dict(expert_mod.PARAMS), "causal": True,
-            "inputs": "expert phase: the canonical policy observation only (records.split_observation whitelist: ego "
-                      "motion/actuator state and the road model of the visible preview) and published VehicleParams; "
-                      "replayed with every privileged field removed. Scripted approach before hand-over uses scenario "
-                      "config and course progress (phase=approach, never clean)"}
+            "inputs": "expert phase: canonical policy observation and VehicleParams; scripted approach uses scenario config"}
 
 
 # ------------------------------------------------------------------ backend identity
@@ -196,6 +195,19 @@ def certificate_block(dbg: dict) -> dict | None:
         out[f"{k}_mm2_s2"] = None if v is None else int(v)
     return out
 
+def lateral_block(policy: dict, vp: VehicleParams, longitudinal: dict | None) -> dict | None:
+    """Build the exact steer-1 witness from policy input; approach/invalid longitudinal is null."""
+    if longitudinal is None:
+        return None
+    q = steer.quantise_dict(policy)
+    if q is not None:
+        q = {**q, "lat": abs(int(q["lat"]))}
+    dec = steer.decide(steer.model_constants(vp), q)
+    return {"model": steer.CERT_MODEL, "kind": steer.KIND_NAMES[dec["kind"]],
+            "certified": dec["kind"] == steer.KIND_PLAN_OK, "side": dec["side"],
+            "amp": dec["amp"], "offset_mm": dec["off"], "curvature_micro": dec["curv"],
+            "steer_milli": dec["steer"]}
+
 
 def tree_diff(a, b) -> float:
     """Max abs difference between two JSON trees: floats within tolerance, everything else
@@ -220,21 +232,21 @@ def tree_diff(a, b) -> float:
 
 
 def expert_label(policy: dict, privileged: dict | None, vp: VehicleParams, config: dict | None) -> tuple[dict, dict]:
-    """(training target, expert diagnostics) of the expert re-run. Expert phase (``config=None``):
-    the expert sees ONLY the canonical policy observation (``privileged`` is ignored). Scripted
-    approach: the full observation and the scenario config."""
+    """Re-run the expert using only policy input during the decision phase."""
     if config is None:
         obs = policy_to_observation(policy)
     else:
         obs = obs_from_dict(merge_observation(policy, privileged))
     raw = command_to_dict(expert_mod.expert_action(obs, vp, config))
-    return label_blocks(raw, approach=config is not None)
+    return label_blocks(raw, approach=config is not None, policy=policy, vp=vp)
 
 
-def label_blocks(raw: dict, approach: bool) -> tuple[dict, dict]:
+def label_blocks(raw: dict, approach: bool, policy: dict | None = None, vp: VehicleParams | None = None) -> tuple[dict, dict]:
     dbg = raw["debug"]
     st = dbg.get("status")
-    target = training_target(raw, None if approach else certificate_block(dbg))
+    lon = certificate_block(dbg) if not approach else None
+    lateral = None if policy is None or vp is None else lateral_block(policy, vp, lon)
+    target = training_target(raw, lon, lateral)
     expert = {"phase": "approach" if approach else "expert",
               "status": expert_mod.STATUS_NAMES.get(int(st), "unknown") if st is not None else "unknown", "debug": dbg}
     return target, expert
@@ -282,9 +294,13 @@ def build_samples(entry: dict, steps: list, vp: VehicleParams, backend: str, run
         if s["first"] is None:
             reasons.append("no_physics_tick")
         pol, priv = split_observation(o)
-        target, expert = (None, None) if raw is None else label_blocks(raw, approach=phase == "approach")
-        if target is not None and phase != "approach" and not (target["longitudinal"] or {}).get("certified"):
-            reasons.append("label_uncertified")  # a clean sample must carry a certified longitudinal label
+        target, expert = (None, None) if raw is None else label_blocks(
+            raw, approach=phase == "approach", policy=pol, vp=vp)
+        if target is not None and phase != "approach":
+            if not (target["longitudinal"] or {}).get("certified"):
+                reasons.append("label_uncertified")
+            if not (target["lateral"] or {}).get("certified"):
+                reasons.append("label_lateral_uncertified")
         rec = {
             "schema": SAMPLE_SCHEMA, "schema_version": SCHEMA_VERSION,
             "sample_id": f"{entry['scenario_id']}:{o['step']:05d}",
@@ -369,14 +385,18 @@ def run_scenario(e: dict, cfg: dict, out: Path, backend: str) -> dict:
         for s in samples:
             f.write(json.dumps(s, allow_nan=False, separators=(",", ":")) + "\n")
     os.replace(tmp, spath)
+    mc = steer.model_constants(vp)
     entry.update({
         "status": "completed", "clean_run": not fails, "run_failures": fails, "outcome": outcome,
-        "vehicle": summary["vehicle"], "cert_model": cert.CERT_MODEL, "cert_constants": expert_mod.model_constants(vp),
+        "vehicle": summary["vehicle"], "cert_model": cert.CERT_MODEL, "cert_constants": mc["lon"],
+        "lateral_cert_model": steer.CERT_MODEL, "lateral_cert_constants": mc,
         "sim_time_s": summary["sim_time_s"],
         "wall_time_s": round(time.perf_counter() - t0, 2), "n_samples": len(samples),
         "n_decision": sum(1 for s in samples if s["privileged"]["oracle"]["phase"] == "decision"),
         "n_clean": sum(1 for s in samples if s["quality"]["clean"]),
         "n_certified_clean": sum(1 for s in samples if s["quality"]["clean"] and is_certified(s)),
+        "n_lateral_certified_clean": sum(1 for s in samples if s["quality"]["clean"] and
+                                         (s["target"].get("lateral") or {}).get("certified")),
         "files": {"samples": _fref(out, spath), "track": _fref(out, track_path),
                   **{k: _fref(out, run_dir / k) for k in ("telemetry.csv", "events.json", "summary.json")}},
     })
@@ -423,7 +443,7 @@ def generate_corpus(manifest_path: str, out_dir: str, backend: str, *, design_pa
         "manifest": {"file": "manifest.json", "file_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
                      "content_sha256": manifest["content_sha256"], "source_path": str(Path(manifest_path).resolve())},
         "backend": be_info, "expert": expert_identity(), "certificate_model": cert.CERT_MODEL,
-        "sim_config": cfg, "sim_config_sha256": sha256_obj(cfg),
+        "lateral_certificate_model": steer.CERT_MODEL, "sim_config": cfg, "sim_config_sha256": sha256_obj(cfg),
         "per_scenario_overrides": "road_model.range_m = preview_m; sim.seed = scenario sim_seed; "
                                   "controller config = scripted approach (handover_progress, speed)",
         "environment": {"python": platform.python_version(), "numpy": np.__version__, "platform": platform.platform()},
@@ -503,6 +523,7 @@ def _write_index(out: Path, index: dict, family, manifest: dict) -> None:
         "scenarios_run": len(sc), "clean_runs": sum(1 for s in sc if s.get("clean_run")),
         "samples": sum(s.get("n_samples", 0) for s in sc), "clean_samples": sum(s.get("n_clean", 0) for s in sc),
         "clean_certified_samples": sum(s.get("n_certified_clean", 0) for s in sc),
+        "clean_lateral_certified_samples": sum(s.get("n_lateral_certified_clean", 0) for s in sc),
         "clean_uncertified_samples": sum(s.get("n_clean", 0) - s.get("n_certified_clean", 0) for s in sc),
         "clean_samples_by_split": {sp: sum(s.get("n_clean", 0) for s in sc if s["split"] == sp)
                                    for sp in ("train", "val", "test")},

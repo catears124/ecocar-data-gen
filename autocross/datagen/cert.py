@@ -51,6 +51,7 @@ Lean checker computes the same integers from the JSON numbers of the recorded sa
 from __future__ import annotations
 
 import math
+from functools import lru_cache
 from fractions import Fraction
 
 CERT_MODEL = "cert-2"
@@ -110,9 +111,13 @@ def model_constants(vp, r_h_mm: int, hold: float, ramp_in: float, ramp_out: floa
 CONST_KEYS = ("a_lat", "a_acc", "a_brk", "a_max", "v_max", "r_h", "hold", "ramp_in", "ramp_out", "r_sw_m", "veh_width")
 
 
+@lru_cache(maxsize=None)
 def qfix(x, scale: int) -> int:
-    """round-half-up(x * scale), exact on the shortest decimal repr of the float x.
-    Raises ValueError for None / NaN / inf / non-numbers."""
+    """Memoised round-half-up quantisation; cache hits are value-identical to the exact formula.
+
+    The result is computed on the shortest decimal repr of the float and raises ``ValueError``
+    for bool, ``None``, NaN, inf, or non-numbers.
+    """
     if isinstance(x, bool) or x is None:
         raise ValueError("not a number")
     x = float(x)

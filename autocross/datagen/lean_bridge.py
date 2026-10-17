@@ -193,10 +193,13 @@ def _check_witness_file(lake: str, path: Path) -> dict:
             "ok": r.returncode == 0 and len(proved) == len(names) and not bad and not errors}
 
 
-def kernel_witnesses(lake: str, wdir: Path, expected_ids: list[str], jobs: int | None = None) -> dict:
-    """Kernel-check every witness file; the witnessed sample ids must equal ``expected_ids``."""
-    idx = json.loads((wdir / "witness_index.json").read_text())
-    files = sorted(wdir.glob("Witness_*.lean"), key=lambda p: int(p.stem.split("_")[1]))
+def kernel_witnesses(lake: str, wdir: Path, expected_ids: list[str], jobs: int | None = None,
+                     *, lateral: bool = False) -> dict:
+    """Kernel-check every longitudinal or lateral witness file and exact clean id set."""
+    idx_name = "witness_index_lateral.json" if lateral else "witness_index.json"
+    prefix = "WitnessL_" if lateral else "Witness_"
+    idx = json.loads((wdir / idx_name).read_text())
+    files = sorted(wdir.glob(f"{prefix}*.lean"), key=lambda p: int(p.stem.split("_")[1]))
     with ThreadPoolExecutor(max_workers=jobs or max(1, (os.cpu_count() or 2) - 1)) as ex:
         res = list(ex.map(lambda p: _check_witness_file(lake, p), files))
     ids = [w["sample_id"] for w in idx]
@@ -206,11 +209,10 @@ def kernel_witnesses(lake: str, wdir: Path, expected_ids: list[str], jobs: int |
     h = hashlib.sha256()
     for p in files:
         h.update(p.read_bytes())
-    return {"ok": ok, "method": "one theorem `Corpus.Cert.decide c q = <recorded decision>` per clean sample, "
-                                "q quantised by corpuscheck from the JSON record, proved `by decide` (Lean kernel)",
-            "files": len(files), "theorems": len(ids), "kernel_proved": proved, "expected_clean_samples": len(expected_ids),
-            "ids_equal_expected": sorted(ids) == sorted(expected_ids), "witness_sources_sha256": h.hexdigest(),
-            "failed_files": [r for r in res if not r["ok"]][:10]}
+    return {"ok": ok, "method": "one theorem per clean sample, proved by decide (Lean kernel)",
+            "files": len(files), "theorems": len(ids), "kernel_proved": proved,
+            "expected_clean_samples": len(expected_ids), "ids_equal_expected": sorted(ids) == sorted(expected_ids),
+            "witness_sources_sha256": h.hexdigest(), "failed_files": [r for r in res if not r["ok"]][:10]}
 
 
 def _clean_ids(corpus: Path, index: dict) -> list[str]:
@@ -246,11 +248,15 @@ def run_checker(interchange: Path, corpus: Path | None, report_path: Path, *, wi
         if corpus is not None:
             if witness:
                 index = json.loads((corpus / "index.json").read_text())
-                report["kernel_witnesses"] = kernel_witnesses(lake, witness_dir, _clean_ids(corpus, index), jobs)
-                if not report["kernel_witnesses"]["ok"]:
+                expected = _clean_ids(corpus, index)
+                report["kernel_witnesses"] = kernel_witnesses(lake, witness_dir, expected, jobs)
+                report["kernel_witnesses_lateral"] = kernel_witnesses(
+                    lake, witness_dir, expected, jobs, lateral=True)
+                if not report["kernel_witnesses"]["ok"] or not report["kernel_witnesses_lateral"]["ok"]:
                     report["ok"] = False
             else:
                 report["kernel_witnesses"] = {"ok": None, "skipped": True}
+                report["kernel_witnesses_lateral"] = {"ok": None, "skipped": True}
     finally:
         if tmp:
             shutil.rmtree(tmp, ignore_errors=True)

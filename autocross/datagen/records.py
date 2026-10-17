@@ -176,11 +176,11 @@ def command_to_dict(cmd: Command | None) -> dict | None:
             "debug": {str(k): _f(v) for k, v in sorted((cmd.debug or {}).items())}}
 
 
-def training_target(raw: dict, certificate: dict | None) -> dict:
-    """The imitation target of one step. ``longitudinal`` is the certified quantity (integer
-    acceleration in mm/s^2 of model cert-2, with its kind); ``uncertified`` holds the lateral path,
-    steering, the pedal mapping and the target speed, which carry NO formal guarantee."""
-    return {"schema": TRAINING_TARGET_SCHEMA, "longitudinal": certificate,
+def training_target(raw: dict, certificate: dict | None, lateral: dict | None = None) -> dict:
+    """The imitation target of one step. ``longitudinal`` and ``lateral`` are certified
+    integer model blocks; ``uncertified`` remains the declared tracking layer containing
+    the lateral path/steering, pedal mapping, and target speed."""
+    return {"schema": TRAINING_TARGET_SCHEMA, "longitudinal": certificate, "lateral": lateral,
             "uncertified": {k: raw[k] for k in ("steer", "throttle", "brake", "target_speed", "path", "path_frame")}}
 
 

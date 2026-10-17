@@ -62,12 +62,13 @@ def dataset_report(root: str | Path) -> dict:
 
     reasons_runs = Counter(f for r in runs for f in r.get("run_failures", []))
     sample_reasons, phases = Counter(), Counter()
-    per_split = {sp: {"runs": 0, "clean_runs": 0, "samples": 0, "clean_samples": 0, "certified_clean_samples": 0,
+    per_split = {sp: {"runs": 0, "clean_runs": 0, "samples": 0, "clean_samples": 0,
+                      "certified_clean_samples": 0, "lateral_certified_clean_samples": 0,
                       "uncertified_clean_samples": 0, "groups": set(), "clean_groups": set(),
                       "effective_samples_ar1": 0.0} for sp in SPLITS}
     kinds = Counter()
     contents = Counter()
-    n_samples = n_clean = n_cert = 0
+    n_samples = n_clean = n_cert = n_lat_cert = 0
     for r in runs:
         sp = per_split[r["split"]]
         sp["runs"] += 1
@@ -93,6 +94,9 @@ def dataset_report(root: str | Path) -> dict:
                     acc.append(s["target"]["longitudinal"]["accel_mm_s2"])
                 else:
                     sp["uncertified_clean_samples"] += 1
+                if (s["target"].get("lateral") or {}).get("certified"):
+                    n_lat_cert += 1
+                    sp["lateral_certified_clean_samples"] += 1
         if r.get("clean_run"):
             sp["clean_runs"] += 1
             if r.get("n_clean", 0) > 0:
@@ -128,6 +132,7 @@ def dataset_report(root: str | Path) -> dict:
                    "scenario_groups": len({r["group_id"] for r in runs}),
                    "clean_scenario_groups": sum(per_split[sp]["clean_groups"] for sp in SPLITS),
                    "samples": n_samples, "clean_samples": n_clean, "certified_clean_samples": n_cert,
+                   "lateral_certified_clean_samples": n_lat_cert,
                    "uncertified_clean_samples": n_clean - n_cert, "excluded_samples": n_samples - n_clean,
                    "samples_by_phase": dict(phases), "clean_certificate_kinds": dict(kinds),
                    "distinct_clean_examples": len(contents),

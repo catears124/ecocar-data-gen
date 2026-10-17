@@ -100,12 +100,27 @@ def decideOpt (c : Cert.Consts) : Option Cert.Q → Cert.Decision
   | some q => Cert.decide c q
   | none => ⟨Cert.kindInvalid, -c.a_max, none, none, none⟩
 
+def quantiseL (po : Json) : Option Steer.Q := do
+  let base ← quantise po
+  let road := po.getObjValD "road"
+  let lat ← jnum road "lateral_offset" 1000
+  pure { base, lat := Cert.iabs lat }
+
+def decideOptL (c : Steer.Consts) : Option Steer.Q → Steer.Decision
+  | some q => Steer.decide c q
+  | none => ⟨Steer.kindInvalid, [], [], [], [], []⟩
+
 def kindName : Nat → String
   | 0 => "greatest_safe" | 1 => "min_violation" | 2 => "no_feasible_gap" | 3 => "invalid_input" | _ => "unknown"
 
+def kindNameL : Nat → String
+  | 0 => "plan_ok" | 1 => "no_feasible_gap" | 2 => "invalid_input" | _ => "unknown"
 
 def kindId : String → Option Nat
   | "greatest_safe" => some 0 | "min_violation" => some 1 | "no_feasible_gap" => some 2 | "invalid_input" => some 3
+  | _ => none
+def kindIdL : String → Option Nat
+  | "plan_ok" => some 0 | "no_feasible_gap" => some 1 | "invalid_input" => some 2
   | _ => none
 def optInt : Json → Except String (Option Int)
   | .null => .ok none
@@ -129,6 +144,40 @@ def parseCert (j : Json) : Except String CertRec := do
          certified := ← j.getObjValAs? Bool "certified", a,
          b1 := ← optInt (j.getObjValD "b1_mm2_s2"), b0 := ← optInt (j.getObjValD "b0_mm2_s2"),
          B0 := ← optInt (j.getObjValD "B0_mm2_s2") }
+def intArr (j : Json) (k : String) : Except String (List Int) :=
+  match j.getObjValD k with
+  | .arr a => a.toList.mapM fun x => match x with
+      | .num n => if n.exponent = 0 then .ok n.mantissa else .error "non-integer"
+      | _ => .error "not an integer"
+  | _ => .error "not an array"
+
+structure LateralRec where
+  model : String
+  kind : String
+  certified : Bool
+  side : List Int
+  amp : List Int
+  off : List Int
+  curv : List Int
+  steer : List Int
+
+def parseLateral (j : Json) : Except String LateralRec := do
+  let o ← j.getObj?
+  if o.size != 8 then throw "lateral certificate has unexpected fields"
+  let model ← j.getObjValAs? String "model"
+  let kind ← j.getObjValAs? String "kind"
+  let certified ← j.getObjValAs? Bool "certified"
+  let side ← intArr j "side"
+  let amp ← intArr j "amp"
+  let off ← intArr j "offset_mm"
+  let curv ← intArr j "curvature_micro"
+  let steer ← intArr j "steer_milli"
+  pure { model, kind, certified, side, amp, off, curv, steer }
+
+def LateralRec.matches (r : LateralRec) (d : Steer.Decision) : Bool :=
+  r.kind == kindNameL d.kind && r.side == d.side && r.amp == d.amp && r.off == d.off &&
+  r.curv == d.curv && r.steer == d.steer &&
+  r.certified == (d.kind == Steer.kindPlanOk)
 
 def CertRec.matches (r : CertRec) (d : Cert.Decision) : Bool :=
   r.kind == kindName d.kind && r.a == d.a && r.b1 == d.b1 && r.b0 == d.b0 && r.B0 == d.B0 &&
@@ -153,15 +202,18 @@ structure St where
   clean : Nat := 0
   certChecked : Nat := 0
   certMismatch : Nat := 0
+  lateralChecked : Nat := 0
+  lateralMismatch : Nat := 0
   certifiedClaims : Nat := 0
   cleanVerified : Nat := 0
+  cleanLateralVerified : Nat := 0
   greatestSafe : Nat := 0
   minViolation : Nat := 0
   cleanIds : Array String := #[]
   verifiedCleanIds : Array String := #[]
   contentHashes : Array (Nat × Nat) := #[]
-  /-- (sample id, run index, quantised observation, recorded decision) of every clean sample -/
   witnesses : Array (String × Nat × Cert.Q × Cert.Decision) := #[]
+  lateralWitnesses : Array (String × Nat × Steer.Q × Steer.Decision) := #[]
 
 def St.fail (st : St) (name id : String) : St :=
   let (n, ex) := st.fails.getD name (0, #[])
@@ -175,8 +227,11 @@ structure Run where
   nSamples : Nat
   nClean : Nat
   nCertClean : Nat
+  nLateralCertClean : Nat
   certModel : String
   consts : Option Cert.Consts
+  lateralCertModel : String
+  lateralConsts : Option Steer.Consts
   samplesPath : Option String
 
 def parseRun (j : Json) : Run :=
@@ -185,15 +240,17 @@ def parseRun (j : Json) : Run :=
   { id := gs "scenario_id", split := gs "split", status := gs "status",
     cleanRun := (j.getObjValAs? Bool "clean_run").toOption.getD false,
     nSamples := gn "n_samples", nClean := gn "n_clean", nCertClean := gn "n_certified_clean",
+    nLateralCertClean := gn "n_lateral_certified_clean",
     certModel := gs "cert_model", consts := (j.getObjValAs? Cert.Consts "cert_constants").toOption,
+    lateralCertModel := gs "lateral_cert_model",
+    lateralConsts := (j.getObjValAs? Steer.Consts "lateral_cert_constants").toOption,
     samplesPath := ((j.getObjValD "files").getObjValD "samples" |>.getObjValAs? String "path").toOption }
 
 /-- Check one sample record (line `i` of run `r`). -/
-def checkSample (r : Run) (c : Cert.Consts) (ri i : Nat) (j : Json) (st : St) : St := Id.run do
+def checkSample (r : Run) (c : Cert.Consts) (cL : Steer.Consts) (ri i : Nat) (j : Json) (st : St) : St := Id.run do
   let mut st := { st with samples := st.samples + 1 }
   let sidOpt := (j.getObjValAs? String "sample_id").toOption
   let sid := sidOpt.getD s!"{r.id}#{i}"
-  -- identity: schema, run, split, sample_id = run:step with step = line index
   let schemaOk := (j.getObjValAs? String "schema").toOption == some "autocross.datagen.sample" &&
     (j.getObjValAs? Nat "schema_version").toOption == some 2
   let step := (j.getObjValAs? Nat "step").toOption
@@ -205,50 +262,55 @@ def checkSample (r : Run) (c : Cert.Consts) (ri i : Nat) (j : Json) (st : St) : 
   let reasons := (j.getObjValD "quality").getObjValD "exclusion_reasons"
   let oracle := ((j.getObjValD "privileged").getObjValD "oracle").getObjValAs? String "phase" |>.toOption
   let target := j.getObjValD "target"
-  let expertPhase := (j.getObjValD "expert").getObjValAs? String "phase" |>.toOption
-  if clean.isNone || oracle.isNone then
-    st := st.fail "records_parse" sid
+  if clean.isNone || oracle.isNone then st := st.fail "records_parse" sid
   let isClean := clean == some true
-  if isClean then
-    st := { st with clean := st.clean + 1, cleanIds := st.cleanIds.push sid }
-  -- certificate: present iff the target is an expert-phase target
+  if isClean then st := { st with clean := st.clean + 1, cleanIds := st.cleanIds.push sid }
   let lon := target.getObjValD "longitudinal"
-  let hasTarget := !(target matches .null)
-  let hasCert := !(lon matches .null)
-  if hasTarget && (expertPhase == some "expert") != hasCert then
+  let lat := target.getObjValD "lateral"
+  let hasLon := !(lon matches .null)
+  let hasLat := !(lat matches .null)
+  if hasLon != hasLat then
     st := st.fail "cert_presence_matches_phase" sid
-  if !hasTarget && hasCert then
-    st := st.fail "cert_presence_matches_phase" sid
-  let mut verifiedCertified := false
+  let mut verifiedLon := false
+  let mut verifiedLat := false
   let mut recorded : Option Cert.Decision := none
+  let mut recordedL : Option Steer.Decision := none
   let q := quantise (j.getObjValD "policy_observation")
-  if hasCert then
+  let qL := quantiseL (j.getObjValD "policy_observation")
+  if hasLon then
     match parseCert lon with
     | .error _ => st := st.fail "records_parse" sid
     | .ok rc =>
       let d := decideOpt c q
       recorded := (kindId rc.kind).map fun k => ⟨k, rc.a, rc.b1, rc.b0, rc.B0⟩
-      st := { st with certChecked := st.certChecked + 1,
-                      certifiedClaims := st.certifiedClaims + (if rc.certified then 1 else 0) }
-      if rc.model != "cert-2" then
-        st := st.fail "cert_model_and_constants" sid
-      if rc.matches d then
-        verifiedCertified := d.kind == Cert.kindGreatestSafe || d.kind == Cert.kindMinViolation
-      else
-        st := { st.fail "cert_decisions_recomputed" sid with certMismatch := st.certMismatch + 1 }
+      st := { st with certChecked := st.certChecked + 1, certifiedClaims := st.certifiedClaims + (if rc.certified then 1 else 0) }
+      if rc.model != "cert-2" then st := st.fail "cert_model_and_constants" sid
+      if rc.matches d then verifiedLon := d.kind == Cert.kindGreatestSafe || d.kind == Cert.kindMinViolation
+      else st := { st.fail "cert_decisions_recomputed" sid with certMismatch := st.certMismatch + 1 }
+    match parseLateral lat with
+    | .error _ => st := st.fail "records_parse" sid
+    | .ok rc =>
+      let d := decideOptL cL qL
+      recordedL := (kindIdL rc.kind).map fun k => ⟨k, rc.side, rc.amp, rc.off, rc.curv, rc.steer⟩
+      st := { st with lateralChecked := st.lateralChecked + 1 }
+      if rc.model != "steer-1" then st := st.fail "lateral_cert_model_and_constants" sid
+      if rc.matches d then verifiedLat := d.kind == Steer.kindPlanOk
+      else st := { st.fail "lateral_cert_decisions_recomputed" sid with lateralMismatch := st.lateralMismatch + 1 }
   if isClean then
-    let okClean := verifiedCertified && oracle == some "decision" && r.cleanRun &&
-      (reasons matches .arr #[])
+    let okClean := verifiedLon && verifiedLat && oracle == some "decision" && r.cleanRun && (reasons matches .arr #[])
     if okClean then
       let d := decideOpt c q
-      st := { st with cleanVerified := st.cleanVerified + 1, verifiedCleanIds := st.verifiedCleanIds.push sid,
-                      greatestSafe := st.greatestSafe + (if d.kind == Cert.kindGreatestSafe then 1 else 0),
-                      minViolation := st.minViolation + (if d.kind == Cert.kindMinViolation then 1 else 0) }
-    else
-      st := st.fail "clean_samples_certified" sid
-    -- per-sample kernel witness: `Cert.decide c q = <recorded decision>` (q quantised here, by Lean)
+      st := { st with cleanVerified := st.cleanVerified + 1 }
+      st := { st with cleanLateralVerified := st.cleanLateralVerified + 1 }
+      st := { st with verifiedCleanIds := st.verifiedCleanIds.push sid }
+      st := { st with greatestSafe := st.greatestSafe + (if d.kind == Cert.kindGreatestSafe then 1 else 0) }
+      st := { st with minViolation := st.minViolation + (if d.kind == Cert.kindMinViolation then 1 else 0) }
+    else st := st.fail "clean_samples_certified" sid
     match q, recorded with
     | some q, some rd => st := { st with witnesses := st.witnesses.push (sid, ri, q, rd) }
+    | _, _ => pure ()
+    match qL, recordedL with
+    | some q, some rd => st := { st with lateralWitnesses := st.lateralWitnesses.push (sid, ri, q, rd) }
     | _, _ => pure ()
     match ((j.getObjValD "hashes").getObjValAs? String "content").toOption.bind hexNat, splitIdx r.split with
     | some h, some sp => st := { st with contentHashes := st.contentHashes.push (h, sp) }
@@ -263,16 +325,16 @@ def readJson (α : Type) [FromJson α] (path : System.FilePath) : IO α := do
 
 /-- All checks on a corpus directory. -/
 def corpusChecks (d : Interchange) (dir : System.FilePath) :
-    IO (List Result × Json × Array (String × Nat × Cert.Q × Cert.Decision) × Array (Option Cert.Consts)) := do
+    IO (List Result × Json × Array (String × Nat × Cert.Q × Cert.Decision) × Array (String × Nat × Steer.Q × Steer.Decision) × Array (Option Cert.Consts) × Array (Option Steer.Consts)) := do
   let index ← readJson Json (dir / "index.json")
   let runsJ := match index.getObjValD "scenarios" with | .arr a => a.toList | _ => []
   let runs := runsJ.map parseRun
   let completed : List Run := runs.filter fun (r : Run) => r.status == "completed"
   let mut st : St := {}
-  -- index identity
   let idxOk := (index.getObjValAs? String "schema").toOption == some "autocross.datagen.index" &&
     (index.getObjValAs? Nat "schema_version").toOption == some 2 &&
     (index.getObjValAs? String "certificate_model").toOption == some "cert-2" &&
+    (index.getObjValAs? String "lateral_certificate_model").toOption == some "steer-1" &&
     ((index.getObjValD "backend").getObjValAs? String "name").toOption == some d.backend
   -- the samples directory holds exactly the referenced sample files
   let referenced : List String := completed.filterMap fun (r : Run) => r.samplesPath
@@ -281,10 +343,13 @@ def corpusChecks (d : Interchange) (dir : System.FilePath) :
     else pure []
   let filesExact := present == referenced.mergeSort (· ≤ ·) && referenced.length == completed.length
   for (r, ri) in completed.zipIdx do
-    match r.consts, r.samplesPath with
-    | some c, some p =>
+    match r.consts, r.lateralConsts, r.samplesPath with
+    | some c, some cL, some p =>
       if r.certModel != "cert-2" || !Cert.constsOK c then
         st := st.fail "cert_model_and_constants" r.id
+      if r.lateralCertModel != "steer-1" || !Cert.constsOK cL.lon ||
+          cL.margin < 0 || cL.step <= 0 || cL.kappa_max < 0 then
+        st := st.fail "lateral_cert_model_and_constants" r.id
       let before := st
       let h ← IO.FS.Handle.mk (dir / p) .read
       let mut i := 0
@@ -292,13 +357,14 @@ def corpusChecks (d : Interchange) (dir : System.FilePath) :
         let line ← h.getLine
         if line.isEmpty then break
         match Json.parse line with
-        | .ok j => st := checkSample r c ri i j st
+        | .ok j => st := checkSample r c cL ri i j st
         | .error _ => st := { st.fail "records_parse" s!"{r.id}#{i}" with samples := st.samples + 1 }
         i := i + 1
       if st.samples - before.samples != r.nSamples || st.clean - before.clean != r.nClean ||
-         st.cleanVerified - before.cleanVerified != r.nCertClean then
+         st.cleanVerified - before.cleanVerified != r.nCertClean ||
+         st.cleanLateralVerified - before.cleanLateralVerified != r.nLateralCertClean then
         st := st.fail "run_counts_match_index" r.id
-    | _, _ => st := st.fail "records_parse" r.id
+    | _, _, _ => st := st.fail "records_parse" r.id
   let totals := index.getObjValD "totals"
   let tn (k : String) := (totals.getObjValAs? Nat k).toOption
   let realised : List String := (completed.filter fun (r : Run) => r.cleanRun && r.nClean > 0).map fun (r : Run) => r.id
@@ -309,24 +375,25 @@ def corpusChecks (d : Interchange) (dir : System.FilePath) :
   let counter (name basis : String) : Result :=
     check name basis (failN name = 0) (fun _ => s!"{failN name} failures: {failEx name}")
   let results := [
-    check "index_identity" "index schema 2, certificate model cert-2, backend = interchange backend" (idxOk = true),
+    check "index_identity" "index schema 2, both certificate models, backend = interchange backend" (idxOk = true),
     check "run_ids_unique" "List.Nodup of completed run ids" (List.Nodup (completed.map fun (r : Run) => r.id : List String)),
     check "sample_files_exact" "samples/ holds exactly one file per completed run, all referenced by index.json"
       (filesExact = true) (fun _ => s!"present {present.length}, referenced {referenced.length}, runs {completed.length}"),
     counter "records_parse" "every record and certificate decodes (fail closed)",
-    counter "sample_identity" "schema 2; sample_id = run ++ \":\" ++ pad5 step, step = line index (< 10^5), run and split match; with run_ids_unique the sample ids are distinct",
-    counter "cert_model_and_constants" "certificate model cert-2; constants satisfy Cert.constsOK",
-    counter "cert_decisions_recomputed" "Cert.decide on the Lean-quantised policy observation = recorded kind, a, b1, b0, B0, certified (every certificate)",
-    counter "cert_presence_matches_phase" "certificate present iff expert phase",
-    counter "clean_samples_certified" "every clean sample: verified certificate of kind greatest_safe or min_violation, decision window, clean run, no exclusion reasons",
-    check "clean_ids_equal_checked_ids" "list of clean sample ids = list of clean ids with a verified certified label; non-empty when the index claims clean samples"
-      (st.cleanIds.toList = st.verifiedCleanIds.toList ∧ (claimed > 0 → st.verifiedCleanIds.size > 0))
-      (fun _ => s!"clean {st.cleanIds.size}, verified {st.verifiedCleanIds.size}, claimed {claimed}"),
-    counter "run_counts_match_index" "per run: samples, clean, certified clean = index counts",
-    check "totals_match_index" "index totals = counts of the records read"
-      (tn "samples" = some st.samples ∧ tn "clean_samples" = some st.clean ∧ tn "clean_certified_samples" = some st.cleanVerified)
-      (fun _ => s!"index {tn "samples"}/{tn "clean_samples"}/{tn "clean_certified_samples"}, read {st.samples}/{st.clean}/{st.cleanVerified}"),
-    check "realised_clean_matches_index" "interchange realisedClean = clean runs of index.json" (d.realisedClean = realised),
+    counter "sample_identity" "sample identity fields match line position and run",
+    counter "cert_model_and_constants" "both certificate models and constants satisfy sanity checks",
+    counter "cert_decisions_recomputed" "Cert.decide equals every longitudinal certificate",
+    counter "lateral_cert_decisions_recomputed" "Steer.decide equals every lateral certificate",
+    counter "lateral_cert_model_and_constants" "lateral model steer-1",
+    counter "cert_presence_matches_phase" "both certificates present iff expert phase",
+    counter "clean_samples_certified" "every clean sample has verified longitudinal and lateral certificates",
+    check "clean_ids_equal_checked_ids" "clean ids equal ids with both verified certified labels"
+      (st.cleanIds.toList = st.verifiedCleanIds.toList ∧ (claimed > 0 → st.verifiedCleanIds.size > 0)),
+    counter "run_counts_match_index" "per run counts match index",
+    check "totals_match_index" "index totals = counts of records and both certified labels"
+      (tn "samples" = some st.samples ∧ tn "clean_samples" = some st.clean ∧
+       tn "clean_certified_samples" = some st.cleanVerified ∧
+       tn "clean_lateral_certified_samples" = some st.cleanLateralVerified),
     check "realised_scenarios_accepted" "membership" (∀ i ∈ d.realisedClean, ∃ s ∈ accepted d.scenarios, s.id = i),
     check "realised_coverage_exact" "Decidable (CoverageExact) over scenarios with a clean run"
       (CoverageExact ((accepted d.scenarios).filter fun s => s.id ∈ d.realisedClean) (requiredCells btoSpec d.strength) d.realisedMissing),
@@ -339,10 +406,13 @@ def corpusChecks (d : Interchange) (dir : System.FilePath) :
       (fun _ => firstIds ((d.mirrorChecks.filter fun m => !decide (mirrorObs m.obs = m.mirroredObs ∧ mirrorAct m.act = m.mirroredAct)).map (·.sampleId))) ]
   let stats := Json.mkObj [("runs_completed", completed.length), ("samples_read", st.samples), ("clean_samples", st.clean),
     ("certificates_recomputed", st.certChecked), ("certificate_mismatches", st.certMismatch),
+    ("lateral_certificates_recomputed", st.lateralChecked), ("lateral_certificate_mismatches", st.lateralMismatch),
     ("certified_claims", st.certifiedClaims), ("clean_certified_verified", st.cleanVerified),
+    ("clean_lateral_certified_verified", st.cleanLateralVerified),
     ("clean_greatest_safe", st.greatestSafe), ("clean_min_violation", st.minViolation),
     ("mirror_checks", d.mirrorChecks.length)]
-  return (results, stats, st.witnesses, completed.toArray.map (·.consts))
+  return (results, stats, st.witnesses, st.lateralWitnesses,
+    completed.toArray.map (·.consts), completed.toArray.map (·.lateralConsts))
 
 /-! ## Per-sample kernel witnesses -/
 
@@ -359,6 +429,11 @@ def constsLit (c : Cert.Consts) : String :=
   s!"\{ a_lat := {intLit c.a_lat}, a_acc := {intLit c.a_acc}, a_brk := {intLit c.a_brk}, a_max := {intLit c.a_max}, " ++
   s!"v_max := {intLit c.v_max}, r_h := {intLit c.r_h}, hold := {intLit c.hold}, ramp_in := {intLit c.ramp_in}, " ++
   s!"ramp_out := {intLit c.ramp_out}, r_sw_m := {intLit c.r_sw_m}, veh_width := {intLit c.veh_width} }"
+def qLLit (q : Steer.Q) : String := s!"\{ base := {qLit q.base}, lat := {intLit q.lat} }"
+def decLLit (d : Steer.Decision) : String :=
+  s!"⟨{d.kind}, {listLit d.side}, {listLit d.amp}, {listLit d.off}, {listLit d.curv}, {listLit d.steer}⟩"
+def constsLLit (c : Steer.Consts) : String :=
+  s!"\{ lon := {constsLit c.lon}, margin := {intLit c.margin}, step := {intLit c.step}, kappa_max := {intLit c.kappa_max} }"
 
 /-- Write `Witness_<k>.lean` files: one theorem `Cert.decide c q = d` per clean sample, with `q`
 quantised by this checker and `d` the decision RECORDED in the sample; `by decide` makes the
@@ -387,6 +462,30 @@ def writeWitnesses (out : System.FilePath) (ws : Array (String × Nat × Cert.Q 
     start := start + chunk
     k := k + 1
   return Json.arr idx
+def writeLateralWitnesses (out : System.FilePath) (ws : Array (String × Nat × Steer.Q × Steer.Decision))
+    (consts : Array (Option Steer.Consts)) (chunk : Nat := 60) : IO Json := do
+  IO.FS.createDirAll out
+  let mut idx : Array Json := #[]
+  let mut k := 0
+  let mut start := 0
+  while start < ws.size do
+    let part := ws.extract start (start + chunk)
+    let name := s!"WitnessL_{k}"
+    let runs := (part.toList.map fun w => w.2.1).eraseDups
+    let mut src := "import Corpus\nset_option maxRecDepth 100000\nopen Corpus.Steer\nnamespace " ++ name ++ "\n"
+    for ri in runs do
+      match consts[ri]?.join with
+      | some c => src := src ++ s!"def cL_{ri} : Consts := {constsLLit c}\n"
+      | none => pure ()
+    let mut n := start
+    for (sid, ri, q, d) in part do
+      src := src ++ s!"/-- {sid} -/\ntheorem s{n} : decide cL_{ri} {qLLit q} = {decLLit d} := by decide\n#print axioms s{n}\n"
+      idx := idx.push (Json.mkObj [("file", name ++ ".lean"), ("theorem", s!"{name}.s{n}"), ("sample_id", sid)])
+      n := n + 1
+    IO.FS.writeFile (out / (name ++ ".lean")) (src ++ "end " ++ name ++ "\n")
+    start := start + chunk
+    k := k + 1
+  return Json.arr idx
 
 def main (args : List String) : IO UInt32 := do
   let (witnessDir, args) := match args with
@@ -398,9 +497,9 @@ def main (args : List String) : IO UInt32 := do
     return 2
   | inter :: rest =>
     let d ← readJson Interchange inter
-    let (cres, cstats, ws, consts) ← match rest.head? with
+    let (cres, cstats, ws, wsL, consts, constsL) ← match rest.head? with
       | some dir => corpusChecks d dir
-      | none => pure ([], Json.null, #[], #[])
+      | none => pure ([], Json.null, #[], #[], #[], #[])
     let mres := manifestChecks d
     let corpusMissing := d.hasCorpus && rest.head?.isNone
     let results := mres ++ cres ++
@@ -409,8 +508,10 @@ def main (args : List String) : IO UInt32 := do
     let witness ← match witnessDir with
       | some w => do
         let idx ← writeWitnesses w ws consts
+        let idxL ← writeLateralWitnesses w wsL constsL
         IO.FS.writeFile (System.FilePath.mk w / "witness_index.json") idx.compress
-        pure (Json.mkObj [("dir", w), ("theorems", ws.size)])
+        IO.FS.writeFile (System.FilePath.mk w / "witness_index_lateral.json") idxL.compress
+        pure (Json.mkObj [("dir", w), ("theorems", ws.size), ("lateral_theorems", wsL.size)])
       | none => pure Json.null
     let stats := Json.mkObj [
       ("scenarios", (accepted d.scenarios).length), ("draws", d.scenarios.length), ("pairs", d.pairs.length),

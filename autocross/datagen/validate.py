@@ -18,11 +18,11 @@ from pathlib import Path
 import yaml
 
 from . import INDEX_SCHEMA, SAMPLE_SCHEMA, SCHEMA_VERSION
-from . import cert
+from . import cert, steer
 from .design import check_manifest, region_split
 from .expert import model_constants
 from .generate import (REPLAY_TOL, build_samples, certificate_block, expert_identity, file_sha256, is_certified,
-                       realised_coverage, replay_diff, run_outcome)
+                       lateral_block, realised_coverage, replay_diff, run_outcome)
 from .records import (POLICY_EGO, POLICY_OBSERVATION_SCHEMA, POLICY_ROAD_KEYS, PRIVILEGED_OBS, PRIVILEGED_ROAD,
                       TRAINING_TARGET_SCHEMA, merge_observation, sample_hashes)
 from .spec import canonical_json, get_family
@@ -33,6 +33,7 @@ RECORD_KEYS = {"schema", "schema_version", "sample_id", "scenario_id", "group_id
                "t", "policy_observation", "target", "expert", "privileged", "applied", "outcome", "timing", "quality",
                "hashes"}
 CERT_KEYS = {"model", "kind", "certified", "accel_mm_s2", "b1_mm2_s2", "b0_mm2_s2", "B0_mm2_s2"}
+LATERAL_KEYS = {"model", "kind", "certified", "side", "amp", "offset_mm", "curvature_micro", "steer_milli"}
 
 
 class Report:
@@ -102,10 +103,12 @@ def _structure_errors(s: dict) -> list[str]:
         errs.append("privileged block malformed")
     t = s["target"]
     if t is not None:
-        if set(t) != {"schema", "longitudinal", "uncertified"} or t["schema"] != TRAINING_TARGET_SCHEMA:
+        if set(t) != {"schema", "longitudinal", "lateral", "uncertified"} or t["schema"] != TRAINING_TARGET_SCHEMA:
             errs.append("target malformed")
         elif t["longitudinal"] is not None and set(t["longitudinal"]) != CERT_KEYS:
             errs.append("certificate block malformed")
+        elif t["lateral"] is not None and set(t["lateral"]) != LATERAL_KEYS:
+            errs.append("lateral certificate block malformed")
         if s["expert"] is None or set(s["expert"]) != {"phase", "status", "debug"}:
             errs.append("expert diagnostics malformed")
     elif s["expert"] is not None:
@@ -149,9 +152,12 @@ def validate_corpus(root: str | Path, *, replay: bool = True, allow_missing_cove
         rep.warn(f"backend is '{backend}': NOT CARLA data; use only as a tooling/logic check")
     if index.get("certificate_model") != cert.CERT_MODEL:
         rep.err(f"corpus certificate model {index.get('certificate_model')!r} != {cert.CERT_MODEL!r}")
+    if index.get("lateral_certificate_model") != steer.CERT_MODEL:
+        rep.err(f"corpus lateral certificate model {index.get('lateral_certificate_model')!r} != {steer.CERT_MODEL!r}")
     cur = expert_identity()
     if (cur["source_sha256"] != index["expert"]["source_sha256"] or cur["version"] != index["expert"]["version"]
-            or cur["certificate_source_sha256"] != index["expert"].get("certificate_source_sha256")):
+            or cur["certificate_source_sha256"] != index["expert"].get("certificate_source_sha256")
+            or cur["lateral_certificate_source_sha256"] != index["expert"].get("lateral_certificate_source_sha256")):
         rep.warn("expert source/version changed since generation; label replay below uses the current expert")
 
     # ---- unexpected / unreferenced artifacts (fail closed)
@@ -183,7 +189,7 @@ def validate_corpus(root: str | Path, *, replay: bool = True, allow_missing_cove
     dt = float(vcfg["sim"]["physics_dt"])
     delay = int(vcfg.get("actuators", {}).get("delay_steps", 0))
     seen_ids, content_split = set(), {}
-    n_samples = n_clean = n_replayed = n_cert_checked = n_clean_cert = 0
+    n_samples = n_clean = n_replayed = n_cert_checked = n_lateral_checked = n_clean_cert = n_clean_lateral_cert = 0
     domain_viol_stations = domain_viol_samples = 0  # visible stations tighter than the declared domain
     max_replay = 0.0
     for r in runs:
@@ -229,10 +235,12 @@ def validate_corpus(root: str | Path, *, replay: bool = True, allow_missing_cove
         if summary["vehicle"] != r.get("vehicle"):
             rep.err(f"{where}: vehicle parameters in index differ from the run summary")
         vp = VehicleParams(**summary["vehicle"])
-        consts = model_constants(vp)
-        if r.get("cert_model") != cert.CERT_MODEL or r.get("cert_constants") != consts:
-            rep.err(f"{where}: certificate model/constants in index differ from model_constants(vehicle)")
         rate = vp.max_steer_rate * dt
+        consts = steer.model_constants(vp)
+        if r.get("cert_model") != cert.CERT_MODEL or r.get("cert_constants") != consts["lon"]:
+            rep.err(f"{where}: certificate model/constants in index differ from model_constants(vehicle)")
+        if r.get("lateral_cert_model") != steer.CERT_MODEL or r.get("lateral_cert_constants") != consts:
+            rep.err(f"{where}: lateral certificate model/constants differ from model_constants(vehicle)")
         # ---- per-sample structure first (later checks assume it)
         bad = False
         for i, s in enumerate(samples):
@@ -295,17 +303,27 @@ def validate_corpus(root: str | Path, *, replay: bool = True, allow_missing_cove
                 if lon is not None:
                     # independent Python recomputation from the policy observation (Lean does the same)
                     n_cert_checked += 1
-                    nv = cert.domain_violations(consts, cert.quantise_dict(s["policy_observation"]))
+                    nv = cert.domain_violations(consts["lon"], cert.quantise_dict(s["policy_observation"]))
                     if nv:
                         domain_viol_stations += nv
                         domain_viol_samples += 1
                         rep.err(f"{sw}: {nv} visible stations are tighter than the declared domain "
                                 f"(horizon assumption contradicted)")
-                    want = certificate_block(_cert_debug(cert.decide(consts, cert.quantise_dict(s["policy_observation"]))))
+                    want = certificate_block(_cert_debug(cert.decide(consts["lon"], cert.quantise_dict(s["policy_observation"]))))
                     if lon != want:
                         rep.err(f"{sw}: certificate differs from the cert-2 decision of its policy observation")
                     if lon["certified"] != (lon["kind"] in ("greatest_safe", "min_violation")):
                         rep.err(f"{sw}: certified flag inconsistent with kind")
+                lat = t["lateral"]
+                if (phase == "approach") != (lat is None):
+                    rep.err(f"{sw}: lateral certificate presence inconsistent with phase")
+                if lat is not None:
+                    n_lateral_checked += 1
+                    want_lat = lateral_block(s["policy_observation"], vp, lon)
+                    if lat != want_lat:
+                        rep.err(f"{sw}: lateral certificate differs from steer-1 decision")
+                    if lat["certified"] != (lat["kind"] == "plan_ok"):
+                        rep.err(f"{sw}: lateral certified flag inconsistent with kind")
                 a = s["applied"]
                 if a["first_tick"] is not None and not a["command_held"] and delay == 0:
                     st0 = s["policy_observation"]["steer"]
@@ -329,10 +347,12 @@ def validate_corpus(root: str | Path, *, replay: bool = True, allow_missing_cove
                 rep.err(f"{sw}: clean flag inconsistent with exclusion reasons")
             if s["quality"]["clean"]:
                 n_clean += 1
-                if not is_certified(s) or phase != "decision" or not r["clean_run"]:
-                    rep.err(f"{sw}: clean sample without a certified longitudinal label in a clean run's decision window")
+                lat_ok = bool(((s.get("target") or {}).get("lateral") or {}).get("certified"))
+                if not is_certified(s) or not lat_ok or phase != "decision" or not r["clean_run"]:
+                    rep.err(f"{sw}: clean sample without both certified labels in a clean run's decision window")
                 else:
                     n_clean_cert += 1
+                    n_clean_lateral_cert += 1
                 h = s["hashes"]["content"]
                 if h in content_split:
                     if content_split[h] != e["split"]:
@@ -343,6 +363,8 @@ def validate_corpus(root: str | Path, *, replay: bool = True, allow_missing_cove
             n_samples += 1
         if (len(samples) != r["n_samples"] or sum(s["quality"]["clean"] for s in samples) != r["n_clean"]
                 or sum(s["quality"]["clean"] and is_certified(s) for s in samples) != r["n_certified_clean"]
+                or sum(s["quality"]["clean"] and bool(((s.get("target") or {}).get("lateral") or {}).get("certified"))
+                       for s in samples) != r.get("n_lateral_certified_clean", 0)
                 or sum(s["privileged"]["oracle"]["phase"] == "decision" for s in samples) != r["n_decision"]):
             rep.err(f"{where}: sample counts differ from index")
         if not r["clean_run"]:
@@ -362,11 +384,11 @@ def validate_corpus(root: str | Path, *, replay: bool = True, allow_missing_cove
             rep.err(f"contrast pair {p['pair_id']} crosses splits")
     # ---- totals and coverage
     tot = index.get("totals", {})
-    if tot.get("clean_samples") != n_clean or tot.get("clean_certified_samples") != n_clean_cert or tot.get("samples") != n_samples:
-        rep.err(f"index totals (samples {tot.get('samples')}, clean {tot.get('clean_samples')}, certified "
-                f"{tot.get('clean_certified_samples')}) differ from the samples ({n_samples}, {n_clean}, {n_clean_cert})")
-    if n_clean != n_clean_cert:
-        rep.err(f"{n_clean - n_clean_cert} clean samples are not certified")
+    if (tot.get("clean_samples") != n_clean or tot.get("clean_certified_samples") != n_clean_cert
+            or tot.get("clean_lateral_certified_samples") != n_clean_lateral_cert or tot.get("samples") != n_samples):
+        rep.err(f"index totals differ from validated samples ({n_samples}, {n_clean}, {n_clean_cert}, {n_clean_lateral_cert})")
+    if n_clean != n_clean_cert or n_clean != n_clean_lateral_cert:
+        rep.err("clean samples are not certified by both models")
     if any(r.get("n_clean") for r in runs) and n_clean == 0:
         rep.err("index claims clean samples but none were validated")
     cov = realised_coverage(manifest, index)
@@ -380,6 +402,7 @@ def validate_corpus(root: str | Path, *, replay: bool = True, allow_missing_cove
     rep.stats = {"backend": backend, "scenarios_in_manifest": len(by_id), "runs": len(runs),
                  "clean_runs": sum(1 for r in runs if r.get("clean_run")), "samples": n_samples, "clean_samples": n_clean,
                  "clean_certified_samples": n_clean_cert, "certificates_recomputed_python": n_cert_checked,
+                 "lateral_certificates_recomputed": n_lateral_checked,
                  "label_replays": n_replayed, "label_replay_max_abs_diff": max_replay, "replay_tolerance": REPLAY_TOL,
                  "domain_assumption": {"samples_with_violations": domain_viol_samples,
                                        "stations_tighter_than_domain": domain_viol_stations},

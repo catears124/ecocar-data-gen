@@ -32,7 +32,7 @@ import math
 import numpy as np
 
 from autocross.api import Command, Controller, Observation, TrackInfo, VehicleParams
-from autocross.datagen import cert
+from autocross.datagen import cert, steer
 from autocross.datagen.spec import get_family
 
 EXPERT_NAME = "bto_expert"
@@ -64,8 +64,8 @@ PARAMS = {k: v for k, v in dict(globals()).items() if k.isupper() and isinstance
 
 
 def model_constants(vp: VehicleParams) -> dict:
-    """Constants of model M: vehicle limits from the published VehicleParams, horizon from the domain."""
-    return cert.model_constants(vp, HORIZON_RADIUS_MM, HOLD, RAMP_IN, RAMP_OUT, R_SW)
+    """Combined cert-2 and steer-1 constants used by the expert."""
+    return steer.model_constants(vp)
 
 
 def _smoothstep(t):
@@ -105,33 +105,25 @@ def _approach(obs: Observation, vp: VehicleParams, target_speed: float) -> Comma
                           "plan_offset_ld": 0.0, "lookahead_m": ld, "n_obstacles": float(len(road.obstacles))})
 
 
-def lateral_plan(road, vp: VehicleParams, q: dict, c: dict) -> tuple[np.ndarray, np.ndarray, float]:
-    """Planned path (vehicle frame), its offset from the centerline, and the nearest obstacle's
-    chosen side. Side and target use the same station widths as model M."""
+def _steer_domain_q(q: dict | None) -> dict | None:
+    """Map the observed lateral offset into steer-1's declared non-negative domain."""
+    if q is None:
+        return None
+    return {**q, "lat": abs(int(q["lat"]))}
+
+
+def lateral_plan(road, vp: VehicleParams, q: dict, c: dict, dec: dict | None = None) -> tuple[np.ndarray, np.ndarray, float]:
+    """Build the vehicle-frame path from the certified integer steer-1 offsets."""
+    del vp
+    if dec is None:
+        dec = steer.decide(c, q)
     s = np.asarray(road.preview_s, float)
     cl = np.asarray(road.preview_centerline, float)
-    wl, wr = np.asarray(road.preview_width_left, float), np.asarray(road.preview_width_right, float)
-    offset, weight = np.zeros_like(s), np.zeros_like(s)
-    side_sel, d_sel = 0.0, math.inf
-    for ob, obq in zip(road.obstacles, q["obstacles"]):
-        side, _, _ = cert.obstacle_plan(c, q, obq)
-        i = cert._nearest_index(q["s"], obq[0])
-        if side == 0:  # equal gaps: keep to the side the car is already on (left on an exact tie)
-            side = 1 if road.lateral_offset >= 0.0 else -1
-        target = 0.5 * (ob.lateral_max + wl[i]) if side > 0 else 0.5 * (ob.lateral_min - wr[i])
-        d0 = ob.distance
-        w = np.where(s < d0, _smoothstep((s - (d0 - HOLD - RAMP_IN)) / RAMP_IN),
-                     1.0 - _smoothstep((s - (d0 + HOLD)) / RAMP_OUT))
-        offset = np.where(w > weight, target * w, offset)
-        weight = np.maximum(weight, w)
-        if d0 < d_sel:
-            side_sel, d_sel = float(side), d0
-    hw = 0.5 * vp.width
-    lo, hi = -wr + hw + CORRIDOR_MARGIN, wl - hw - CORRIDOR_MARGIN
-    offset = np.where(lo <= hi, np.clip(offset, lo, hi), 0.5 * (lo + hi))
+    offset = np.asarray(dec["off"], dtype=float) / 1000.0
     hd = np.arctan2(np.gradient(cl[:, 1]), np.gradient(cl[:, 0]))
     path = cl + np.column_stack((-np.sin(hd), np.cos(hd))) * offset[:, None]
-    return path, offset, side_sel
+    side = float(dec["side"][0]) if dec["side"] else 0.0
+    return path, offset, side
 
 
 def _invalid(dec: dict) -> Command:
@@ -144,24 +136,28 @@ def _invalid(dec: dict) -> Command:
     return Command(brake=1.0, debug=dbg)
 
 
-def expert_action(obs: Observation, vp: VehicleParams, config: dict | None = None) -> Command:
+def expert_action(obs: Observation, vp: VehicleParams, config: dict | None = None,
+                  constants: dict | None = None) -> Command:
     """The expert's command for one observation. Pure function: no hidden state."""
     road = obs.road
+    c = model_constants(vp) if constants is None else constants
+    base = cert.quantise(obs)
+    q = steer.quantise_from_base(base, None if road is None else road.lateral_offset)
+    lonq = None if q is None else q["base"]
     if road is None or not road.valid or len(road.preview_s) < 3:
-        return _invalid(cert.decide(model_constants(vp), cert.quantise(obs)))
+        return _invalid(cert.decide(c["lon"], lonq))
     appr = (config or {}).get("approach")
     if appr and obs.progress < float(appr["handover_progress"]):
         return _approach(obs, vp, float(appr["speed"]))
-
     v = max(obs.speed, 0.0)
-    c = model_constants(vp)
-    q = cert.quantise(obs)
-    dec = cert.decide(c, q)
+    dec = cert.decide(c["lon"], lonq)
     if q is None:
         return _invalid(dec)
-    path, offset, side = lateral_plan(road, vp, q, c)
+    sq = _steer_domain_q(q)
+    ldec = steer.decide(c, sq)
+    path, offset, side = lateral_plan(road, vp, sq, c, ldec)
     s = np.asarray(road.preview_s, float)
-    steer, ld = _pursuit(path, s, v, vp)
+    steer_cmd, ld = _pursuit(path, s, v, vp)
     a_des = dec["a"] / 1000.0
     status = {cert.KIND_GREATEST_SAFE: STATUS_OK, cert.KIND_MIN_VIOLATION: STATUS_OVER_BUDGET,
               cert.KIND_NO_GAP: STATUS_NO_GAP}.get(dec["kind"], STATUS_ROAD_INVALID)
@@ -172,11 +168,12 @@ def expert_action(obs: Observation, vp: VehicleParams, config: dict | None = Non
         throttle, brake, v_tgt = 0.0, 1.0, 0.0
     dbg = {"phase": PHASE_EXPERT, "status": status, "a_des": a_des, "side": side,
            "plan_offset_ld": float(np.interp(ld, s, offset)), "lookahead_m": ld,
-           "n_obstacles": float(len(road.obstacles)), "cert_kind": dec["kind"], "cert_a": dec["a"]}
+           "n_obstacles": float(len(road.obstacles)), "cert_kind": dec["kind"], "cert_a": dec["a"],
+           "lateral_kind": ldec["kind"], "lateral_side": side}
     for k in ("b1", "b0", "B0"):
         if dec[k] is not None:
             dbg[f"cert_{k}"] = dec[k]
-    return Command(steer=steer, throttle=throttle, brake=brake, path=path, path_frame="vehicle", target_speed=v_tgt,
+    return Command(steer=steer_cmd, throttle=throttle, brake=brake, path=path, path_frame="vehicle", target_speed=v_tgt,
                    debug=dbg)
 
 
@@ -188,6 +185,15 @@ class BrakeTurnObstacleExpert(Controller):
         extra = set(self.config) - {"approach"}
         if extra:
             raise ValueError(f"expert config accepts only 'approach', got {sorted(extra)}")
+        self._constants = model_constants(vehicle)
+        warm = {"speed": 0.0, "road": {"valid": True, "lateral_offset": 0.0,
+                "preview_s": [0.0, 1.0], "preview_curvature": [0.0, 0.0],
+                "preview_width_left": [3.0, 3.0], "preview_width_right": [3.0, 3.0],
+                "obstacles": []}}
+        warm_base = cert.quantise_dict(warm)
+        warm_q = steer.quantise_from_base(warm_base, 0.0)
+        cert.decide(self._constants["lon"], warm_base)
+        steer.decide(self._constants, warm_q)
 
     def step(self, obs: Observation) -> Command:
-        return expert_action(obs, self.vehicle, self.config)
+        return expert_action(obs, self.vehicle, self.config, self._constants)

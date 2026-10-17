@@ -68,7 +68,16 @@ def iter_examples(corpus: str | Path, split: str | None = None, *, clean_only: b
                 if pol.get("schema") != POLICY_OBSERVATION_SCHEMA or tgt.get("schema") != TRAINING_TARGET_SCHEMA:
                     raise DatagenError(f"{s['sample_id']}: unexpected policy/target schema")
                 lon = tgt["longitudinal"]
-                status = {"certified": bool(lon and lon["certified"]), "model": lon["model"] if lon else None,
+                lat = tgt["lateral"]
+                status = {"certified": bool(lon and lon["certified"] and lat and lat["certified"]),
+                          "models": {
+                              "longitudinal": {"certified": bool(lon and lon["certified"]),
+                                               "model": lon["model"] if lon else None,
+                                               "kind": lon["kind"] if lon else None},
+                              "lateral": {"certified": bool(lat and lat["certified"]),
+                                          "model": lat["model"] if lat else None,
+                                          "kind": lat["kind"] if lat else None}},
+                          "model": lon["model"] if lon else None,
                           "kind": lon["kind"] if lon else None, "scope": CERT_SCOPE}
                 meta = {"sample_id": s["sample_id"], "scenario_id": s["scenario_id"], "group_id": s["group_id"],
                         "split": s["split"], "backend": backend, "step": s["step"], "clean": s["quality"]["clean"]}
