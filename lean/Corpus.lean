@@ -2,5 +2,8 @@ import Corpus.Cert
 import Corpus.Steer
 import Corpus.SteerFeas
 import Corpus.SteerRamp
+import Corpus.Track
+import Corpus.Bellman
+import Corpus.Dp
 import Corpus.Properties
 import Corpus.Mirror
