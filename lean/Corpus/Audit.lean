@@ -55,5 +55,6 @@ import Corpus
 #print axioms Corpus.SteerFeas.target_in_corridor_right
 #print axioms Corpus.SteerFeas.off_clearance_hold
 #print axioms Corpus.SteerFeas.off_clearance_ramps_outside
+#print axioms Corpus.SteerRamp.n_shift
 #print axioms Corpus.SteerRamp.n_full
 #print axioms Corpus.SteerRamp.ramp_full
