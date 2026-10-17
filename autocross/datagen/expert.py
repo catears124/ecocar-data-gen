@@ -7,13 +7,15 @@ its command is a pure function of that observation and the published ``VehiclePa
     command = expert_action(obs, vehicle, config=None)
 
 It keeps no state between steps, so every label can be recomputed offline from the recorded
-observation (``data-validate`` does this for every decision-window sample). It does not read
-``obs.x/y/yaw`` (world pose), ``obs.progress`` or ``obs.cones``.
+observation (``data-validate`` re-runs it on the canonical policy observation of every expert
+sample, with every privileged field removed). It does not read ``obs.x/y/yaw`` (world pose),
+``obs.progress``, ``obs.cones``, ``road.corners`` or ``road.finish_distance`` after hand-over.
 
-Longitudinal decision (CERTIFIED, see ``cert.py`` and ``lean/Corpus/Cert.lean``): the
-acceleration toward the greatest speed profile that stays feasible under model M for every
-continuation beyond the preview (or full braking when the car is already over budget). The
-Lean checker recomputes this decision from the recorded observation for every clean sample.
+Longitudinal decision (CERTIFIED, see ``cert.py`` and ``lean/Corpus/Cert.lean``): the greatest
+integer acceleration (mm/s^2) whose end point over the first preview segment still admits a
+feasible speed profile under model M and its declared terminal constraint (or full braking when
+the car is already over budget). The Lean checker recomputes this decision from the recorded
+observation for every expert sample and requires it for every clean sample.
 
 Lateral plan and steering (NOT certified): the perceived centerline shifted into the centre of
 the wider free gap beside each visible obstacle (smoothstep ramps, clamped inside the
@@ -31,22 +33,23 @@ import numpy as np
 
 from autocross.api import Command, Controller, Observation, TrackInfo, VehicleParams
 from autocross.datagen import cert
+from autocross.datagen.spec import get_family
 
 EXPERT_NAME = "bto_expert"
-EXPERT_VERSION = "2.0.0"
+EXPERT_VERSION = "3.0.0"
 
-G = 9.81
-A_LAT_FRAC = 0.70        # grip budget of model M: lateral accel as a fraction of mu * g
-A_BRAKE_PLAN = 6.5       # m/s^2, braking budget of model M (max_decel is 9)
-V_MAX = 25.0             # m/s
-HORIZON_RADIUS = 9.0     # m, tightest corner assumed possible just beyond the preview
-GAP_MARGIN = 0.25        # m, free space required each side of the car for a gap to count
-CORRIDOR_MARGIN = 0.30   # m, planned path keeps the car body this far inside the boundaries
-RAMP_IN, RAMP_OUT, HOLD = 18.0, 15.0, 3.0   # m, sidestep ramps / full-shift half-length
-R_SW = 15                # m, shortest ramp: bounds sidestep curvature by 6|y|/R_SW^2 in model M
-GAP_SPEED_BASE, GAP_SPEED_PER_M = 5.0, 6.0  # m/s, + per metre of slack beside an obstacle
-LD_BASE, LD_GAIN, LD_MIN, LD_MAX = 1.0, 0.45, 4.0, 14.0  # pure-pursuit look-ahead [m], [s]
-BRAKE_DEADBAND = 0.2     # m/s^2 of demanded deceleration left to drag before braking
+G = cert.G
+CORRIDOR_MARGIN = 0.30   # m, (uncertified) lateral planner keeps the car body this far inside the boundaries
+RAMP_IN, RAMP_OUT, HOLD = 18.0, 15.0, 3.0   # m, sidestep ramps / full-shift half-length of the lateral planner
+R_SW = 15                # m, = min(RAMP_IN, RAMP_OUT): bounds sidestep curvature by 6|y|/R_SW^2 in model M
+BRAKE_DEADBAND = 0.2     # m/s^2 of demanded deceleration left to drag before braking (pedal mapping)
+
+# Declared scenario domain (the only knowledge about the road beyond the preview): tightest turn
+# radius and widest road of the family spec; the largest sidestep offset is half the widest road.
+_FAMILY = get_family("brake_turn_obstacle")
+DOMAIN_R_MIN_M = min(b.lo for b in _FAMILY.factor("turn_radius_m").bins)
+DOMAIN_Y_MAX_M = max(b.hi for b in _FAMILY.factor("road_width_m").bins) / 2.0
+HORIZON_RADIUS_MM = cert.domain_horizon_mm(DOMAIN_R_MIN_M, DOMAIN_Y_MAX_M, R_SW)
 
 PHASE_APPROACH, PHASE_EXPERT = 0, 1
 STATUS_OK, STATUS_APPROACH, STATUS_NO_GAP, STATUS_ROAD_INVALID, STATUS_OVER_BUDGET = 0, 1, 2, 3, 4
@@ -57,8 +60,8 @@ PARAMS = {k: v for k, v in dict(globals()).items() if k.isupper() and isinstance
 
 
 def model_constants(vp: VehicleParams) -> dict:
-    return cert.model_constants(vp, A_LAT_FRAC, A_BRAKE_PLAN, V_MAX, HORIZON_RADIUS, HOLD, RAMP_IN, RAMP_OUT, R_SW,
-                                GAP_SPEED_BASE, GAP_SPEED_PER_M, GAP_MARGIN)
+    """Constants of model M: vehicle limits from the published VehicleParams, horizon from the domain."""
+    return cert.model_constants(vp, HORIZON_RADIUS_MM, HOLD, RAMP_IN, RAMP_OUT, R_SW)
 
 
 def _smoothstep(t):
@@ -122,12 +125,21 @@ def lateral_plan(road, vp: VehicleParams, q: dict, c: dict) -> tuple[np.ndarray,
     return path, offset, side_sel
 
 
+def _invalid(dec: dict) -> Command:
+    """Road model unusable (or a non-finite input): full brake; the (uncertified) decision is
+    still recorded so the certificate fields can be recomputed by the checkers."""
+    dbg = {"phase": PHASE_EXPERT, "status": STATUS_ROAD_INVALID, "cert_kind": dec["kind"], "cert_a": dec["a"]}
+    for k in ("b1", "b0", "B0"):
+        if dec[k] is not None:
+            dbg[f"cert_{k}"] = dec[k]
+    return Command(brake=1.0, debug=dbg)
+
+
 def expert_action(obs: Observation, vp: VehicleParams, config: dict | None = None) -> Command:
     """The expert's command for one observation. Pure function: no hidden state."""
     road = obs.road
     if road is None or not road.valid or len(road.preview_s) < 3:
-        return Command(brake=1.0, debug={"phase": PHASE_EXPERT, "status": STATUS_ROAD_INVALID,
-                                         "cert_kind": cert.KIND_INVALID})
+        return _invalid(cert.decide(model_constants(vp), cert.quantise(obs)))
     appr = (config or {}).get("approach")
     if appr and obs.progress < float(appr["handover_progress"]):
         return _approach(obs, vp, float(appr["speed"]))
@@ -136,6 +148,8 @@ def expert_action(obs: Observation, vp: VehicleParams, config: dict | None = Non
     c = model_constants(vp)
     q = cert.quantise(obs)
     dec = cert.decide(c, q)
+    if q is None:
+        return _invalid(dec)
     path, offset, side = lateral_plan(road, vp, q, c)
     s = np.asarray(road.preview_s, float)
     steer, ld = _pursuit(path, s, v, vp)

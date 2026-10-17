@@ -1,9 +1,13 @@
 """Corpus validator: recomputes everything that can be recomputed and reports disagreements.
 
-Errors (exit 1): schema/version, manifest consistency, file hashes, track/run provenance,
-sample identity and hashes, quality flags vs. recomputed exclusion rules, label replay (the
-expert re-run on the recorded observation), applied-action consistency with the actuator model,
-event/outcome consistency, duplicates and leakage across splits, realised coverage.
+Errors (exit 1): schema/version, manifest consistency, file hashes, unexpected or missing files,
+track/run provenance, sample identity, record structure (policy-input whitelist), every sample
+hash (policy observation, training target, content, whole record), quality flags vs. recomputed
+exclusion rules, full label replay (the expert re-run on the canonical policy observation alone,
+compared on the complete training target: certificate, path, path frame, steering, pedals, target
+speed), an independent Python recomputation of every certificate, model constants, applied-action
+consistency with the actuator model, event/outcome consistency, duplicates and leakage across
+splits, realised coverage, index totals.
 Warnings: excluded runs, partial corpora, within-split duplicates, expert source drift."""
 from __future__ import annotations
 
@@ -14,23 +18,32 @@ from pathlib import Path
 import yaml
 
 from . import INDEX_SCHEMA, SAMPLE_SCHEMA, SCHEMA_VERSION
+from . import cert
 from .design import check_manifest, region_split
-from .generate import (REPLAY_TOL, build_samples, expert_identity, file_sha256, realised_coverage, replay_diff,
-                       run_outcome)
-from .records import content_hash
+from .expert import model_constants
+from .generate import (REPLAY_TOL, build_samples, certificate_block, expert_identity, file_sha256, is_certified,
+                       realised_coverage, replay_diff, run_outcome)
+from .records import (POLICY_EGO, POLICY_OBSERVATION_SCHEMA, POLICY_ROAD_KEYS, PRIVILEGED_OBS, PRIVILEGED_ROAD,
+                      TRAINING_TARGET_SCHEMA, merge_observation, sample_hashes)
 from .spec import canonical_json, get_family
 from ..api import VehicleParams
 
 ACTION_KEYS = ("steer", "throttle", "brake")
+RECORD_KEYS = {"schema", "schema_version", "sample_id", "scenario_id", "group_id", "family", "split", "backend", "step",
+               "t", "policy_observation", "target", "expert", "privileged", "applied", "outcome", "timing", "quality",
+               "hashes"}
+CERT_KEYS = {"model", "kind", "certified", "accel_mm_s2", "b1_mm2_s2", "b0_mm2_s2", "B0_mm2_s2"}
 
 
 class Report:
     def __init__(self):
         self.errors: list[str] = []
         self.warnings: list[str] = []
+        self.n_errors = 0
         self.stats: dict = {}
 
     def err(self, msg: str):
+        self.n_errors += 1
         if len(self.errors) < 500:
             self.errors.append(msg)
 
@@ -49,20 +62,63 @@ def _finite_tree(x) -> bool:
     return True
 
 
+def _raw_command(s: dict) -> dict | None:
+    """The expert's raw command as the recorder saw it, rebuilt from target + diagnostics."""
+    if s["target"] is None:
+        return None
+    return {**s["target"]["uncertified"], "debug": s["expert"]["debug"]}
+
+
 def _rebuild_steps(samples: list[dict]) -> list[dict]:
     """The recorder's per-step view, rebuilt from samples (for recomputing run outcome and flags)."""
     steps = []
     for s in samples:
-        e = s["expert"]
-        raw = None if e is None else {k: e[k] for k in ("steer", "throttle", "brake", "target_speed", "path",
-                                                         "path_frame", "debug")}
         a = s["applied"]
-        steps.append({"obs": s["observation"], "raw": raw, "held": a["command_held"], "clipped": a["command_clipped"],
+        steps.append({"obs": merge_observation(s["policy_observation"], s["privileged"]["observation"]),
+                      "raw": _raw_command(s), "held": a["command_held"], "clipped": a["command_clipped"],
                       "timing": s["timing"], "ticks": a["ticks"], "first": a["first_tick"], "last": a["end_of_period"],
                       "off_course": s["outcome"]["off_course"], "events": s["outcome"]["events"],
                       "min_boundary_margin": s["outcome"]["min_boundary_margin_m"] if a["ticks"] else math.inf,
                       "progress_end": s["outcome"]["progress_end"]})
     return steps
+
+
+def _structure_errors(s: dict) -> list[str]:
+    """Shape of a v2 record: the policy observation is exactly the whitelist, privileged data is
+    only in ``privileged``, the target has the declared form."""
+    errs = []
+    if set(s) != RECORD_KEYS:
+        errs.append(f"record keys {sorted(set(s) ^ RECORD_KEYS)} unexpected/missing")
+        return errs
+    p = s["policy_observation"]
+    if not isinstance(p, dict) or set(p) != {"schema", "road", *POLICY_EGO} or p.get("schema") != POLICY_OBSERVATION_SCHEMA:
+        errs.append("policy_observation is not the canonical whitelist")
+    elif p["road"] is not None and set(p["road"]) != set(POLICY_ROAD_KEYS):
+        errs.append("policy_observation.road is not the canonical whitelist")
+    pr = s["privileged"]
+    if (not isinstance(pr, dict) or set(pr) != {"observation", "oracle"}
+            or set(pr["observation"]) != {*PRIVILEGED_OBS, "road"}
+            or (pr["observation"]["road"] is not None and set(pr["observation"]["road"]) != set(PRIVILEGED_ROAD))):
+        errs.append("privileged block malformed")
+    t = s["target"]
+    if t is not None:
+        if set(t) != {"schema", "longitudinal", "uncertified"} or t["schema"] != TRAINING_TARGET_SCHEMA:
+            errs.append("target malformed")
+        elif t["longitudinal"] is not None and set(t["longitudinal"]) != CERT_KEYS:
+            errs.append("certificate block malformed")
+        if s["expert"] is None or set(s["expert"]) != {"phase", "status", "debug"}:
+            errs.append("expert diagnostics malformed")
+    elif s["expert"] is not None:
+        errs.append("expert diagnostics without a target")
+    return errs
+
+
+def _expected_files(index: dict) -> set[str]:
+    return {f["path"] for r in index["scenarios"] if r.get("status") == "completed" for f in r["files"].values()}
+
+
+TOP_LEVEL_FILES = {"index.json", "manifest.json", "contrast_report.json", "validation_report.json", "lean_report.json",
+                   "dataset_report.json", "lean", "samples", "runs", "tracks", "RELEASE_FILES.sha256"}
 
 
 def validate_corpus(root: str | Path, *, replay: bool = True, allow_missing_coverage: bool = False) -> Report:
@@ -76,7 +132,8 @@ def validate_corpus(root: str | Path, *, replay: bool = True, allow_missing_cove
         rep.err(f"cannot read index.json / manifest.json: {e}")
         return rep
     if index.get("schema") != INDEX_SCHEMA or index.get("schema_version") != SCHEMA_VERSION:
-        rep.err(f"unsupported index schema {index.get('schema')}/{index.get('schema_version')}")
+        rep.err(f"unsupported index schema {index.get('schema')}/{index.get('schema_version')} "
+                f"(this validator reads {INDEX_SCHEMA}/{SCHEMA_VERSION})")
         return rep
     for e in check_manifest(manifest):
         rep.err(f"manifest: {e}")
@@ -90,10 +147,24 @@ def validate_corpus(root: str | Path, *, replay: bool = True, allow_missing_cove
         rep.err("backend.is_carla disagrees with backend.name")
     if backend != "carla":
         rep.warn(f"backend is '{backend}': NOT CARLA data; use only as a tooling/logic check")
+    if index.get("certificate_model") != cert.CERT_MODEL:
+        rep.err(f"corpus certificate model {index.get('certificate_model')!r} != {cert.CERT_MODEL!r}")
     cur = expert_identity()
     if (cur["source_sha256"] != index["expert"]["source_sha256"] or cur["version"] != index["expert"]["version"]
             or cur["certificate_source_sha256"] != index["expert"].get("certificate_source_sha256")):
         rep.warn("expert source/version changed since generation; label replay below uses the current expert")
+
+    # ---- unexpected / unreferenced artifacts (fail closed)
+    expected = _expected_files(index)
+    for sub in ("samples", "runs", "tracks"):
+        d = root / sub
+        if d.exists():
+            for p in d.rglob("*"):
+                if p.is_file() and str(p.relative_to(root)).replace("\\", "/") not in expected:
+                    rep.err(f"unexpected file {p.relative_to(root)} (not referenced by index.json)")
+    for p in root.iterdir():
+        if p.name not in TOP_LEVEL_FILES:
+            rep.err(f"unexpected top-level entry {p.name}")
 
     by_id = {e["scenario_id"]: e for e in manifest["scenarios"] if e["status"] == "accepted"}
     runs = index["scenarios"]
@@ -112,7 +183,8 @@ def validate_corpus(root: str | Path, *, replay: bool = True, allow_missing_cove
     dt = float(vcfg["sim"]["physics_dt"])
     delay = int(vcfg.get("actuators", {}).get("delay_steps", 0))
     seen_ids, content_split = set(), {}
-    n_samples = n_clean = n_replayed = 0
+    n_samples = n_clean = n_replayed = n_cert_checked = n_clean_cert = 0
+    domain_viol_stations = domain_viol_samples = 0  # visible stations tighter than the declared domain
     max_replay = 0.0
     for r in runs:
         sid = r["scenario_id"]
@@ -141,7 +213,7 @@ def validate_corpus(root: str | Path, *, replay: bool = True, allow_missing_cove
         except (OSError, ValueError, KeyError) as ex:
             rep.err(f"{where}: cannot read run artifacts ({ex})")
             continue
-        # ---- provenance: course, simulator, controller
+        # ---- provenance: course, simulator, controller, model constants
         if canonical_json(track) != canonical_json(family.track_spec(e["params"], sid)):
             rep.err(f"{where}: course YAML is not the course of its manifest parameters")
         if summary["backend"] != backend:
@@ -154,8 +226,26 @@ def validate_corpus(root: str | Path, *, replay: bool = True, allow_missing_cove
             rep.err(f"{where}: run controller hash is not the recorded expert")
         if summary["config"].get("track_knowledge") != "perception":
             rep.err(f"{where}: run was not in perception (no-map) mode")
+        if summary["vehicle"] != r.get("vehicle"):
+            rep.err(f"{where}: vehicle parameters in index differ from the run summary")
         vp = VehicleParams(**summary["vehicle"])
+        consts = model_constants(vp)
+        if r.get("cert_model") != cert.CERT_MODEL or r.get("cert_constants") != consts:
+            rep.err(f"{where}: certificate model/constants in index differ from model_constants(vehicle)")
         rate = vp.max_steer_rate * dt
+        # ---- per-sample structure first (later checks assume it)
+        bad = False
+        for i, s in enumerate(samples):
+            sw = s.get("sample_id", where + f"#{i}") if isinstance(s, dict) else where + f"#{i}"
+            if not isinstance(s, dict) or s.get("schema") != SAMPLE_SCHEMA or s.get("schema_version") != SCHEMA_VERSION:
+                rep.err(f"{sw}: bad sample schema")
+                bad = True
+                continue
+            for m in _structure_errors(s):
+                rep.err(f"{sw}: {m}")
+                bad = True
+        if bad:
+            continue
         # ---- run outcome and exclusion flags, recomputed
         steps = _rebuild_steps(samples)
         outcome, fails = run_outcome(summary, events, steps, e["layout"], e["params"], family)
@@ -170,10 +260,7 @@ def validate_corpus(root: str | Path, *, replay: bool = True, allow_missing_cove
         # ---- per sample
         prev_step = -1
         for i, s in enumerate(samples):
-            sw = f"{s.get('sample_id', where + f'#{i}')}"
-            if s.get("schema") != SAMPLE_SCHEMA or s.get("schema_version") != SCHEMA_VERSION:
-                rep.err(f"{sw}: bad sample schema")
-                continue
+            sw = s["sample_id"]
             if s["step"] != prev_step + 1:
                 rep.err(f"{sw}: control steps not contiguous")
             prev_step = s["step"]
@@ -184,39 +271,69 @@ def validate_corpus(root: str | Path, *, replay: bool = True, allow_missing_cove
                          ("family", family.name), ("backend", backend)):
                 if s.get(k) != v:
                     rep.err(f"{sw}: {k}={s.get(k)!r}, expected {v!r}")
-            if s["observation"]["step"] != s["step"]:
-                rep.err(f"{sw}: observation step mismatch")
+            if s["privileged"]["observation"]["step"] != s["step"] or s["privileged"]["observation"]["t"] != s["t"]:
+                rep.err(f"{sw}: observation step/time mismatch")
             if not _finite_tree(s):
                 rep.err(f"{sw}: non-finite number")
-            x = s["expert"]
-            if x is not None:
-                if s["content_sha256"] != content_hash(s["observation"], x):
-                    rep.err(f"{sw}: content hash mismatch")
+            try:
+                hashes = sample_hashes(s)
+            except (TypeError, ValueError) as ex:
+                rep.err(f"{sw}: record cannot be hashed ({ex})")
+                continue
+            if hashes != s["hashes"]:
+                bad_h = [k for k in hashes if hashes[k] != (s["hashes"] or {}).get(k)]
+                rep.err(f"{sw}: sample hash mismatch ({', '.join(bad_h)})")
+            t = s["target"]
+            phase = s["privileged"]["oracle"]["phase"]
+            if t is not None:
+                x = t["uncertified"]
                 if not (abs(x["steer"]) <= 1 and 0 <= x["throttle"] <= 1 and 0 <= x["brake"] <= 1):
                     rep.err(f"{sw}: expert action outside the command range")
-            a = s["applied"]
-            if a["first_tick"] is not None and x is not None and not a["command_held"] and delay == 0:
-                st0 = s["observation"]["steer"]
-                want = min(max(st0 + min(max(x["steer"] - st0, -rate), rate), -1.0), 1.0)
-                if (abs(a["first_tick"]["steer"] - want) > 1e-12 or a["first_tick"]["throttle"] != x["throttle"]
-                        or a["first_tick"]["brake"] != x["brake"]):
-                    rep.err(f"{sw}: applied action inconsistent with the proposed action and the actuator model")
+                lon = t["longitudinal"]
+                if (phase == "approach") != (lon is None) or (phase == "approach") != (s["expert"]["phase"] == "approach"):
+                    rep.err(f"{sw}: certificate presence inconsistent with phase {phase}")
+                if lon is not None:
+                    # independent Python recomputation from the policy observation (Lean does the same)
+                    n_cert_checked += 1
+                    nv = cert.domain_violations(consts, cert.quantise_dict(s["policy_observation"]))
+                    if nv:
+                        domain_viol_stations += nv
+                        domain_viol_samples += 1
+                        rep.err(f"{sw}: {nv} visible stations are tighter than the declared domain "
+                                f"(horizon assumption contradicted)")
+                    want = certificate_block(_cert_debug(cert.decide(consts, cert.quantise_dict(s["policy_observation"]))))
+                    if lon != want:
+                        rep.err(f"{sw}: certificate differs from the cert-2 decision of its policy observation")
+                    if lon["certified"] != (lon["kind"] in ("greatest_safe", "min_violation")):
+                        rep.err(f"{sw}: certified flag inconsistent with kind")
+                a = s["applied"]
+                if a["first_tick"] is not None and not a["command_held"] and delay == 0:
+                    st0 = s["policy_observation"]["steer"]
+                    want_st = min(max(st0 + min(max(x["steer"] - st0, -rate), rate), -1.0), 1.0)
+                    if (abs(a["first_tick"]["steer"] - want_st) > 1e-12 or a["first_tick"]["throttle"] != x["throttle"]
+                            or a["first_tick"]["brake"] != x["brake"]):
+                        rep.err(f"{sw}: applied action inconsistent with the proposed action and the actuator model")
             if expect is not None:
                 ex = expect[i]
                 if ex["quality"]["exclusion_reasons"] != s["quality"]["exclusion_reasons"]:
                     rep.err(f"{sw}: exclusion reasons {s['quality']['exclusion_reasons']} != recomputed "
                             f"{ex['quality']['exclusion_reasons']}")
-                if x is not None and s["oracle"]["phase"] != "approach":
-                    d = replay_diff(s["observation"], x, vp, None)
+                if t is not None:
+                    d = replay_diff(s, vp, family.expert_config(e["params"]) if phase == "approach" else None)
                     n_replayed += 1
                     max_replay = max(max_replay, d)
                     if not d <= REPLAY_TOL:
-                        rep.err(f"{sw}: label replay differs by {d:.3g} (label is not a function of the observation)")
+                        rep.err(f"{sw}: label replay differs by {d:.3g} (training target is not the expert's output "
+                                f"on the recorded policy observation)")
             if s["quality"]["clean"] != (not s["quality"]["exclusion_reasons"]):
                 rep.err(f"{sw}: clean flag inconsistent with exclusion reasons")
             if s["quality"]["clean"]:
                 n_clean += 1
-                h = s["content_sha256"]
+                if not is_certified(s) or phase != "decision" or not r["clean_run"]:
+                    rep.err(f"{sw}: clean sample without a certified longitudinal label in a clean run's decision window")
+                else:
+                    n_clean_cert += 1
+                h = s["hashes"]["content"]
                 if h in content_split:
                     if content_split[h] != e["split"]:
                         rep.err(f"{sw}: identical sample content in splits {content_split[h]} and {e['split']}")
@@ -224,7 +341,9 @@ def validate_corpus(root: str | Path, *, replay: bool = True, allow_missing_cove
                         rep.warn(f"{sw}: duplicate sample content within split {e['split']}")
                 content_split[h] = e["split"]
             n_samples += 1
-        if len(samples) != r["n_samples"] or sum(s["quality"]["clean"] for s in samples) != r["n_clean"]:
+        if (len(samples) != r["n_samples"] or sum(s["quality"]["clean"] for s in samples) != r["n_clean"]
+                or sum(s["quality"]["clean"] and is_certified(s) for s in samples) != r["n_certified_clean"]
+                or sum(s["privileged"]["oracle"]["phase"] == "decision" for s in samples) != r["n_decision"]):
             rep.err(f"{where}: sample counts differ from index")
         if not r["clean_run"]:
             rep.warn(f"{where}: run excluded ({', '.join(r['run_failures'])})")
@@ -241,7 +360,15 @@ def validate_corpus(root: str | Path, *, replay: bool = True, allow_missing_cove
     for p in manifest["contrast_pairs"]:
         if by_id[p["base_id"]]["split"] != by_id[p["variant_id"]]["split"]:
             rep.err(f"contrast pair {p['pair_id']} crosses splits")
-    # ---- coverage
+    # ---- totals and coverage
+    tot = index.get("totals", {})
+    if tot.get("clean_samples") != n_clean or tot.get("clean_certified_samples") != n_clean_cert or tot.get("samples") != n_samples:
+        rep.err(f"index totals (samples {tot.get('samples')}, clean {tot.get('clean_samples')}, certified "
+                f"{tot.get('clean_certified_samples')}) differ from the samples ({n_samples}, {n_clean}, {n_clean_cert})")
+    if n_clean != n_clean_cert:
+        rep.err(f"{n_clean - n_clean_cert} clean samples are not certified")
+    if any(r.get("n_clean") for r in runs) and n_clean == 0:
+        rep.err("index claims clean samples but none were validated")
     cov = realised_coverage(manifest, index)
     if cov != index.get("coverage_realised"):
         rep.err("realised coverage in index.json differs from recomputation")
@@ -252,9 +379,21 @@ def validate_corpus(root: str | Path, *, replay: bool = True, allow_missing_cove
         rep.warn("contrast_report.json missing")
     rep.stats = {"backend": backend, "scenarios_in_manifest": len(by_id), "runs": len(runs),
                  "clean_runs": sum(1 for r in runs if r.get("clean_run")), "samples": n_samples, "clean_samples": n_clean,
-                 "label_replays": n_replayed, "label_replay_max_abs_diff": max_replay,
-                 "coverage": {"required": cov["n_required"], "covered": cov["n_covered"], "missing": cov["missing"]}}
+                 "clean_certified_samples": n_clean_cert, "certificates_recomputed_python": n_cert_checked,
+                 "label_replays": n_replayed, "label_replay_max_abs_diff": max_replay, "replay_tolerance": REPLAY_TOL,
+                 "domain_assumption": {"samples_with_violations": domain_viol_samples,
+                                       "stations_tighter_than_domain": domain_viol_stations},
+                 "coverage": {"required": cov["n_required"], "covered": cov["n_covered"], "missing": cov["missing"]},
+                 "errors_total": rep.n_errors}
     return rep
+
+
+def _cert_debug(dec: dict) -> dict:
+    d = {"cert_kind": dec["kind"], "cert_a": dec["a"]}
+    for k in ("b1", "b0", "B0"):
+        if dec[k] is not None:
+            d[f"cert_{k}"] = dec[k]
+    return d
 
 
 def main_validate(a) -> int:
@@ -268,6 +407,6 @@ def main_validate(a) -> int:
     for e in rep.errors[:30]:
         print(f"  ERROR: {e}")
     print(json.dumps(rep.stats, indent=1))
-    print(f"{'OK' if not rep.errors else 'FAILED'}: {len(rep.errors)} errors, {len(rep.warnings)} warnings "
+    print(f"{'OK' if not rep.errors else 'FAILED'}: {rep.n_errors} errors, {len(rep.warnings)} warnings "
           f"-> {Path(a.corpus, 'validation_report.json')}")
     return 0 if not rep.errors else 1

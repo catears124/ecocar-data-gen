@@ -1,32 +1,18 @@
-"""Imitation-data pipeline: manifest design, label certificate, corpus validation, Lean checker."""
+"""Imitation-data pipeline: manifest design, coverage, contrasts, splits (corpus and certificate
+tests: test_certification.py)."""
 import copy
 import itertools
-import json
-import shutil
 from pathlib import Path
 
 import pytest
-import yaml
 
 from autocross.datagen import cert
 from autocross.datagen.design import build_manifest, check_manifest, coverage_report, required_cells
-from autocross.datagen.generate import generate_corpus
-from autocross.datagen.records import mirror_action, mirror_observation, obs_from_dict, obs_to_dict
 from autocross.datagen.spec import get_family
-from autocross.datagen.validate import validate_corpus
 
 ROOT = Path(__file__).resolve().parent.parent
 FAM = get_family("brake_turn_obstacle")
 
-
-@pytest.fixture(scope="module")
-def design():
-    return yaml.safe_load(open(ROOT / "config" / "datagen.yaml"))
-
-
-@pytest.fixture(scope="module")
-def smoke(design):
-    return build_manifest(design, "smoke")
 
 
 def _base_params():
@@ -156,199 +142,4 @@ def test_certified_next_speed_is_the_greatest_feasible(caps, b0):
         assert cert.forward(c, bw, s, b0)[1] == brute
 
 
-def test_decide_branches_on_quantised_input():
-    from types import SimpleNamespace
-    vp = SimpleNamespace(mu=0.95, max_accel=5.2, max_decel=9.0, width=2.16)
-    c = cert.model_constants(vp, 0.7, 6.5, 25.0, 9.0, 3.0, 18.0, 15.0, 15, 5.0, 6.0, 0.25)
-    n = 31
-    q = {"v0": 10000, "s": [1000 * i for i in range(n)], "k": [0] * n, "wl": [3000] * n, "wr": [3000] * n, "obstacles": []}
-    assert cert.decide(c, q)["kind"] == cert.KIND_GREATEST_SAFE
-    fast = {**q, "v0": 25000}  # 25 m/s with 30 m of sight: cannot stop for a hairpin at the horizon
-    d = cert.decide(c, fast)
-    assert d["kind"] == cert.KIND_MIN_VIOLATION and d["a"] == -c["a_max"]
-    blocked = {**q, "obstacles": [[15000, -2900, 2900]]}  # no gap wide enough
-    assert cert.decide(c, blocked)["kind"] == cert.KIND_NO_GAP
 
-
-# ------------------------------------------------------------------ generated corpus
-@pytest.fixture(scope="module")
-def corpus(tmp_path_factory, smoke):
-    root = tmp_path_factory.mktemp("corpus")
-    mp = root / "manifest.json"
-    mp.write_text(json.dumps(smoke))
-    out = root / "c"
-    generate_corpus(str(mp), str(out), "bicycle", limit=2, verbose=False)
-    return out
-
-
-def _copy(corpus, tmp_path):
-    dst = tmp_path / "c"
-    shutil.copytree(corpus, dst)
-    return dst
-
-
-def _rewrite_first_sample(root, fn, pick=lambda s: True):
-    idx = json.loads((root / "index.json").read_text())
-    path = root / idx["scenarios"][0]["files"]["samples"]["path"]
-    lines = path.read_text().splitlines()
-    for i, ln in enumerate(lines):
-        s = json.loads(ln)
-        if pick(s):
-            fn(s)
-            lines[i] = json.dumps(s, separators=(",", ":"))
-            break
-    path.write_text("\n".join(lines) + "\n")
-    # keep the file hash consistent so the deeper checks (not just the hash) must catch it
-    from autocross.datagen.generate import file_sha256
-    idx["scenarios"][0]["files"]["samples"]["sha256"] = file_sha256(path)
-    (root / "index.json").write_text(json.dumps(idx, indent=1))
-
-
-def test_corpus_validates_and_records_backend(corpus):
-    strict = validate_corpus(corpus)  # 2 of 20 scenarios: required cells are missing -> error by default
-    assert [e for e in strict.errors if "required coverage cells" in e] and len(strict.errors) == 1
-    rep = validate_corpus(corpus, allow_missing_coverage=True)
-    assert rep.errors == [], rep.errors[:5]
-    assert rep.stats["backend"] == "bicycle" and rep.stats["clean_samples"] > 0
-    assert any("NOT CARLA" in w for w in rep.warnings)
-    idx = json.loads((corpus / "index.json").read_text())
-    assert idx["backend"]["is_carla"] is False
-    s = json.loads((corpus / idx["scenarios"][0]["files"]["samples"]["path"]).read_text().splitlines()[0])
-    assert s["backend"] == "bicycle" and s["scenario_id"] == idx["scenarios"][0]["scenario_id"]
-
-
-def test_clean_samples_are_decision_window_and_certified(corpus):
-    idx = json.loads((corpus / "index.json").read_text())
-    for run in idx["scenarios"]:
-        for ln in (corpus / run["files"]["samples"]["path"]).read_text().splitlines():
-            s = json.loads(ln)
-            if s["quality"]["clean"]:
-                assert s["oracle"]["phase"] == "decision" and run["clean_run"]
-                assert s["expert"]["certificate"]["certified"]
-            if s["oracle"]["phase"] == "approach":
-                assert "phase:approach" in s["quality"]["exclusion_reasons"]
-
-
-@pytest.mark.parametrize("tamper,expect", [
-    (lambda s: s["expert"].__setitem__("brake", min(1.0, s["expert"]["brake"] + 0.3)), "content hash mismatch"),
-    (lambda s: s.__setitem__("split", "test" if s["split"] != "test" else "train"), "split="),
-    (lambda s: s["quality"].update(clean=True, exclusion_reasons=[]), "exclusion reasons"),
-])
-def test_validator_detects_corrupted_records(corpus, tmp_path, tamper, expect):
-    root = _copy(corpus, tmp_path)
-    _rewrite_first_sample(root, tamper, pick=lambda s: s["expert"] is not None and not s["quality"]["clean"])
-    errs = validate_corpus(root).errors
-    assert any(expect in e for e in errs), errs[:5]
-
-
-def test_validator_detects_relabelled_action_with_rehash(corpus, tmp_path):
-    """A wrong label with a recomputed content hash is still caught by label replay."""
-    from autocross.datagen.records import content_hash
-
-    def relabel(s):
-        s["expert"]["steer"] = -s["expert"]["steer"] if s["expert"]["steer"] else 0.25
-        s["content_sha256"] = content_hash(s["observation"], s["expert"])
-    root = _copy(corpus, tmp_path)
-    _rewrite_first_sample(root, relabel, pick=lambda s: s["quality"]["clean"])
-    errs = validate_corpus(root).errors
-    assert any("label replay" in e for e in errs), errs[:5]
-
-
-def test_validator_detects_edited_track(corpus, tmp_path):
-    root = _copy(corpus, tmp_path)
-    idx = json.loads((root / "index.json").read_text())
-    tp = root / idx["scenarios"][0]["files"]["track"]["path"]
-    tp.write_text(tp.read_text().replace("width:", "width: 7.5 #", 1))
-    assert any("hash mismatch" in e for e in validate_corpus(root).errors)
-
-
-def test_generation_is_repeatable_on_bicycle(corpus, tmp_path, smoke):
-    mp = tmp_path / "m.json"
-    mp.write_text(json.dumps(smoke))
-    out = tmp_path / "again"
-    generate_corpus(str(mp), str(out), "bicycle", limit=1, verbose=False)
-    idx_a = json.loads((corpus / "index.json").read_text())
-    idx_b = json.loads((out / "index.json").read_text())
-    a = [json.loads(x)["content_sha256"] for x in (corpus / idx_a["scenarios"][0]["files"]["samples"]["path"]).read_text().splitlines()]
-    b = [json.loads(x)["content_sha256"] for x in (out / idx_b["scenarios"][0]["files"]["samples"]["path"]).read_text().splitlines()]
-    assert a == b
-
-
-def test_observation_roundtrip_and_mirror_involution(corpus):
-    idx = json.loads((corpus / "index.json").read_text())
-    s = next(json.loads(x) for x in (corpus / idx["scenarios"][0]["files"]["samples"]["path"]).read_text().splitlines()
-             if json.loads(x)["observation"]["road"]["obstacles"])
-    o = s["observation"]
-    assert obs_to_dict(obs_from_dict(o)) == o
-    assert mirror_observation(mirror_observation(o)) == o
-    m = mirror_observation(o)
-    assert m["road"]["width_left"] == o["road"]["width_right"]
-    assert m["road"]["obstacles"][0]["lateral_min"] == -o["road"]["obstacles"][0]["lateral_max"]
-    a = mirror_action(s["expert"])
-    assert a["steer"] == -s["expert"]["steer"] and a["brake"] == s["expert"]["brake"]
-    # the certified longitudinal decision is mirror invariant
-    from autocross.datagen.expert import model_constants
-    from autocross.api import VehicleParams
-    c = model_constants(VehicleParams(**idx["scenarios"][0]["vehicle"]))
-    assert cert.decide(c, cert.quantise(obs_from_dict(m))) == cert.decide(c, cert.quantise(obs_from_dict(o)))
-
-
-def test_carla_generation_fails_clearly_without_carla(smoke, tmp_path):
-    pytest.importorskip("yaml")
-    try:
-        import carla  # noqa: F401
-        pytest.skip("carla client installed")
-    except ImportError:
-        pass
-    from autocross.datagen import DatagenError
-    mp = tmp_path / "m.json"
-    mp.write_text(json.dumps(smoke))
-    with pytest.raises(DatagenError, match="No data was generated"):
-        generate_corpus(str(mp), str(tmp_path / "c"), "carla", verbose=False)
-    assert not (tmp_path / "c" / "index.json").exists()
-
-
-# ------------------------------------------------------------------ Lean checker on the actual artifacts
-def _lake_or_skip():
-    from autocross.datagen import DatagenError
-    from autocross.datagen.lean_bridge import lake_path
-    try:
-        return lake_path()
-    except DatagenError:
-        pytest.skip("Lean (lake) not installed")
-
-
-def test_lean_checker_accepts_corpus_and_rejects_tampered_certificate(corpus, tmp_path):
-    _lake_or_skip()
-    from autocross.datagen.lean_bridge import export, run_checker
-    idx = json.loads((corpus / "index.json").read_text())
-    man = json.loads((corpus / "manifest.json").read_text())
-    inter, certs = export(man, tmp_path / "lean", idx, corpus)
-    rep = run_checker(inter, certs, tmp_path / "r.json")
-    assert rep["ok"], [r for r in rep["results"] if not r["ok"]]
-    assert rep["axiom_audit"]["sorry_free"]
-    # an off-by-one acceleration label must be rejected by the Lean recomputation
-    cf = sorted(certs.glob("*.json"))[0]
-    data = json.loads(cf.read_text())
-    sample = next(x for x in data["samples"] if x["clean"])
-    sample["decision"]["a"] += 1
-    cf.write_text(json.dumps(data))
-    rep = run_checker(inter, certs, tmp_path / "r2.json")
-    bad = {r["name"] for r in rep["results"] if not r["ok"]}
-    assert not rep["ok"] and "cert_decisions_recomputed" in bad
-
-
-def test_lean_checker_rejects_split_and_pair_corruption(smoke, tmp_path):
-    _lake_or_skip()
-    from autocross.datagen.lean_bridge import export, run_checker
-    inter, _ = export(smoke, tmp_path / "ok")
-    assert run_checker(inter, None, tmp_path / "ok.json")["ok"]
-    m = copy.deepcopy(smoke)
-    p = m["contrast_pairs"][0]
-    var = next(e for e in m["scenarios"] if e["scenario_id"] == p["variant_id"])
-    var["split"] = "test" if var["split"] != "test" else "train"
-    var["params"]["turn_angle_deg"] = round(var["params"]["turn_angle_deg"] + 1.0, 3)
-    inter, _ = export(m, tmp_path / "bad")
-    rep = run_checker(inter, None, tmp_path / "bad.json")
-    bad = {r["name"] for r in rep["results"] if not r["ok"]}
-    assert {"contrast_pairs_integrity", "split_rule", "group_split_consistent"} <= bad

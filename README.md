@@ -36,8 +36,8 @@ On Windows, install Python from python.org and tick **"py launcher"**, because t
 ### Setup (one time)
 
 ```powershell
-git clone https://github.com/dszurek/ecocar-hackathon-sim.git
-cd ecocar-hackathon-sim
+git clone https://github.com/catears124/ecocar-data-gen.git
+cd ecocar-data-gen
 powershell -ExecutionPolicy Bypass -File scripts\setup.ps1      # Linux: ./scripts/setup.sh
 ```
 
@@ -282,15 +282,16 @@ The `Controller` interface is where a real controller plugs in. The simulator, r
 
 ## Imitation-data generation (certified contrastive corpus)
 
-Generates training data for an imitation-learning controller. Each sample is the exact `Observation` a controller received, plus a deterministic expert's label. The label carries a Lean-checked certificate that the longitudinal decision (accelerate or brake) is optimal under a declared model, using only what the car could see. Training is not part of this repository. Full specification: [`docs/datagen.md`](docs/datagen.md). Notes for whoever picks the learning algorithm: [`docs/algorithm_research_handoff.md`](docs/algorithm_research_handoff.md).
+Generates training data for an imitation-learning controller. Each sample stores the canonical **policy observation** (what the car can see; nothing privileged), the expert's **training target**, and a separate **privileged** block for evaluation. The **longitudinal** part of the target carries a certificate that Lean checks. **Steering, path and pedal mapping are not certified.** Training is not part of this repository. Full specification: [`docs/datagen.md`](docs/datagen.md). Notes for whoever picks the learning algorithm: [`docs/algorithm_research_handoff.md`](docs/algorithm_research_handoff.md).
 
 ```powershell
 python -m autocross data-manifest --profile smoke --out datasets\smoke.manifest.json       # or full / large
 python -m autocross data-check-manifest datasets\smoke.manifest.json
-python -m autocross data-lean datasets\smoke.manifest.json                                 # Lean check of the manifest
 python -m autocross data-generate --manifest datasets\smoke.manifest.json --backend bicycle --out datasets\smoke --workers 4
-python -m autocross data-validate datasets\smoke
-python -m autocross data-lean datasets\smoke                                               # Lean check of the corpus
+python -m autocross data-validate datasets\smoke         # Python: hashes, full label replay, certificates, leakage, coverage
+python -m autocross data-lean datasets\smoke             # Lean: build + axiom audit + corpus check + per-sample kernel proofs
+python -m autocross data-report datasets\smoke           # failures by factor/bin/split with Wilson intervals
+python examples\load_dataset.py datasets\smoke           # canonical loader -> NumPy (no CARLA needed)
 ```
 
 | Command | Purpose |
@@ -298,11 +299,62 @@ python -m autocross data-lean datasets\smoke                                    
 | `data-manifest --profile P --out M.json` | Finite coverage design (`smoke`: every bin; `full` / `large`: every pair of bins), seeded in-cell draws, matched one-factor contrast pairs, region-held-out splits, recorded rejections |
 | `data-check-manifest M.json` | Recompute IDs, hashes, bins, splits, pairs and coverage |
 | `data-generate --manifest M.json --backend carla\|bicycle --out DIR` | Run every scenario with the expert and write `samples/*.jsonl`, `runs/`, `tracks/`, `index.json`, `contrast_report.json`. `--workers N` (bicycle only), `--resume`, `--limit N` |
-| `data-validate DIR` | Schema, hashes, provenance, exact label replay, applied-action consistency, outcome flags, duplicates, split leakage, realised coverage |
-| `data-lean M.json\|DIR` | Export integers, build `lean/` and check: spec equality, validity verdicts, contrast integrity, split rules, coverage exactness, sample leakage, mirror transform, and recompute every certified label. Also runs an axiom audit. Writes `lean_report.json` |
+| `data-validate DIR` | Schema, file and per-record hashes, provenance, full label replay from the policy observation alone (path, frame, steering, pedals, target speed, certificate), independent certificate recomputation, domain-assumption check, outcome flags, unexpected files, split leakage, realised coverage, totals |
+| `data-lean M.json\|DIR` | Build `lean/` (kernel-checks every theorem), axiom audit (release gate), then the compiled checker reads every sample record directly and recomputes every certificate, and the Lean kernel proves `Cert.decide c q = <recorded decision>` for every clean sample. Writes `lean_report.json` |
+| `data-report DIR` | `dataset_report.json`: totals, certified/uncertified counts, failures by reason, factor bin and split (Wilson 95 %), groups, AR(1) effective sample size |
 
-- **Backends.** Every record and `index.json` names the backend. The bicycle corpus is a tooling and logic check, **not CARLA data**. `--backend carla` needs the `carla==0.9.16` client (Python 3.10–3.12) and a running server; otherwise it stops with exit code 3 before writing anything.
-- **Lean.** Install [elan](https://github.com/leanprover/elan); `lean/lean-toolchain` pins Lean 4.35.0 (core only, no Mathlib). Lean certifies the properties of its own model, checked on the exported integers. It does not certify CARLA or bicycle physics, the steering/path labels, or how well a policy trained on the data will perform (trust boundary: [`docs/datagen.md`](docs/datagen.md#6-lean-lean-lean-4350-core-only)).
+### Formal Guarantee
+
+**1. What is proven optimal.** The recorded integer **longitudinal acceleration** `a` (mm/s², `target.longitudinal.accel_mm_s2`) of every clean sample, and the next-station speed² `b1` it is taken from. Nothing about steering, the planned path, the pedal mapping, or the whole lap.
+
+**2. Constraints and objective (model `cert-2`).** This is a point-mass speed profile along the expert's planned path, at the preview stations. The constraints:
+- grip: `v² · κ̄ ≤ a_lat`, where `κ̄` is the model's bound on the planned path's curvature;
+- acceleration and braking budgets;
+- the vehicle's `max_speed`;
+- `v ≥ 0`.
+
+All constants are **derived**. None is tuned:
+- `a_lat`, `a_acc`, `a_brk` lie in the largest equal-axis box inside the friction circle `μg`, capped by `max_accel`/`max_decel`. Every plan of the model therefore respects the friction circle of a point mass, but plans that use the full circle (for example trail braking) are outside the model.
+- The horizon radius `r_h` is the tightest planned path the declared scenario domain allows (turn radius ≥ 9 m, sidestep ≤ half the widest road, giving 2.55 m).
+- The objective is any cost that does not increase when speeds rise pointwise (for example traversal time).
+
+**3. Information used.** Only the canonical policy observation: speed, preview stations, curvature, widths and visible obstacles. Plus the declared scenario domain, which is the only knowledge about the road beyond the preview.
+
+**4. What is proven.** These are Lean theorems in `lean/Corpus/Cert.lean`, kernel-checked, standard axioms only.
+- **Same information.** For every planner that knows only the preview and the domain:
+  - the expert's profile, held at its last speed, is feasible on *every* in-domain continuation of the road (`decide_robust_extend`);
+  - every profile that is safe on the worst in-domain continuation is pointwise ≤ the expert's (`decide_robust_greatest`).
+- **Integer action.** `a` lies in `[−a_brk, a_acc]`. Holding `a` over the first segment starts a feasible profile, and no larger integer acceleration does (`decide_accel_greatest`). Floor rounding can never exceed `b1` or the braking budget.
+- **Over-budget samples** (`min_violation`):
+  - no safe profile exists (`decide_min_violation_infeasible`, `decide_min_violation_robust`);
+  - full braking gives the pointwise-least speeds, so it minimises the excess over any upper speed caps (`brake_minimises_excess`).
+  - It does *not* minimise arbitrary constraint violations.
+
+**5. Discretisation and quantisation.**
+- Integers throughout: mm, mm/s, mm²/s², 1e-6/m, with decisions at the road model's 1 m preview stations.
+- Every input is `floor(x·scale + ½)` computed exactly on the decimal JSON text of the recorded float. Python and Lean compute identical integers.
+
+**6. What Lean actually checks.**
+- (a) `lake build` kernel-checks every theorem.
+- (b) The axiom audit admits only `propext`, `Classical.choice`, `Quot.sound`: no `sorry`, no `native_decide`.
+- (c) `corpuscheck`, a **compiled** Lean program, parses every sample record itself, recomputes every recorded certificate, and requires the set of clean samples to equal the set with a verified certified label, with all counts and IDs consistent with `index.json`.
+- (d) For every clean sample, the **Lean kernel** proves `Cert.decide c q = <recorded decision>`, where `q` is quantised by `corpuscheck` from the record. With (a), every theorem in item 4 applies to that recorded value.
+
+**7. Still trusted.** These parts are not formally verified:
+- the Lean compiler/runtime and JSON parser in (c), and the generation of the witness theorems from the records;
+- the Python generator, simulator and recorder;
+- the derivation of the integer constants from `VehicleParams` and of `r_h` from the scenario domain (`autocross/datagen/cert.py`; the validator checks every visible station against the domain);
+- the modelling assumption that the uncertified lateral planner's path curvature is bounded by `κ̄`.
+
+**8. Not proven.**
+- CARLA or bicycle dynamics: the model is a point mass and ignores load transfer, tyre slip and actuator lag. Certified labels can still end in cone hits; those runs are excluded and reported.
+- Steering, the path and the pedal mapping.
+- Real-world camera visibility: the simulated road model has no occlusion. Its smoothed curvature (±4 m window) and the course builder's global resampling mean a policy observation can depend on course geometry up to ~5 m past the preview edge, and on total course length at the ~1e-4 m level. Noninterference is tested for changes beyond that margin.
+- Optimality over plans outside the friction box, and anything about a learned policy.
+
+- **Backends.** Every record and `index.json` names the backend. The bicycle corpus is a tooling and logic check, **not CARLA data**. `--backend carla` needs the `carla==0.9.16` client (Python 3.10–3.12) and a running server; otherwise it stops with exit code 3 before writing anything. The CARLA "track" is a generated flat OpenDRIVE 1.4 pad with cones; this is not support for arbitrary OpenDRIVE road networks.
+- **Lean.** Install [elan](https://github.com/leanprover/elan); `lean/lean-toolchain` pins Lean 4.35.0 (core only, no Mathlib). CI (`.github/workflows/ci.yml`) runs every Lean step and fails rather than skips when the toolchain is missing (`REQUIRE_LEAN=1`).
+- **Verifying a downloaded release.** Unzip, then from a checkout of the release tag run `data-validate <dir>` and `data-lean <dir>`. Neither trusts the shipped `validation_report.json` / `lean_report.json`; both recompute everything from the samples. `RELEASE_FILES.sha256` lists every file in the archive.
 
 ---
 
@@ -319,9 +371,11 @@ autocross/            harness package
   track.py, trackgen.py, geometry.py
   backends/           carla_backend.py, bicycle.py
   cli.py, calibrate.py, fit.py, config.py
-  datagen/            imitation-data generation: spec, design, expert, cert, generate, validate, lean_bridge
+  datagen/            imitation data: spec, design, expert, cert, records, generate, validate, lean_bridge, report, dataset
 config/               sim.yaml, scoring.yaml, robustness.yaml, datagen.yaml
 docs/                 datagen.md (data specification), algorithm_research_handoff.md
+examples/             load_dataset.py (canonical loader -> NumPy / torch)
+.github/workflows/    ci.yml (Python tests, lake build, axiom audit, smoke corpus, validation, Lean check)
 lean/                 Lean 4 model, proofs and corpus checker (lake build; corpuscheck)
 controllers/          baseline_pure_pursuit.py, template_controller.py
 tracks/               hackathon_test + practice courses (private/ = judges' evaluation repo, git-ignored)

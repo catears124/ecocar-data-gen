@@ -7,12 +7,12 @@ import subprocess
 from ..config import ROOT
 
 GENERATOR_NAME = "autocross.datagen"
-GENERATOR_VERSION = "1.0.0"
+GENERATOR_VERSION = "1.0.1"
 MANIFEST_SCHEMA = "autocross.datagen.manifest"
 INDEX_SCHEMA = "autocross.datagen.index"
 SAMPLE_SCHEMA = "autocross.datagen.sample"
 INTERCHANGE_SCHEMA = "autocross.datagen.lean_interchange"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 class DatagenError(RuntimeError):

@@ -30,8 +30,6 @@ def mirrorObs (o : ObsM) : ObsM where
   leftBoundary := o.rightBoundary.map flipY
   rightBoundary := o.leftBoundary.map flipY
   obstacles := o.obstacles.map mirrorObstacle
-  cornerDirections := o.cornerDirections.map (- ·)
-  cornerTurnAngles := o.cornerTurnAngles.map (- ·)
 
 def mirrorAct (a : ActM) : ActM := { a with steer := -a.steer, path := a.path.map flipY }
 
@@ -87,6 +85,6 @@ theorem chooseSide_mirror (wl wr : Int) (b : ObstacleM) :
   simp only
   by_cases h1 : wl - b.latMax > b.latMin + wr <;> by_cases h2 : b.latMin + wr > wl - b.latMax <;>
     by_cases h3 : wr - -b.latMin > -b.latMax + wl <;> by_cases h4 : -b.latMax + wl > wr - -b.latMin <;>
-    simp only [h1, h2, h3, h4, if_true, if_false] <;> omega
+    simp only [h1, h2, h3, h4, ite_true, ite_false] <;> omega
 
 end Corpus

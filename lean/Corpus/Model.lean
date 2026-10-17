@@ -97,8 +97,6 @@ structure ObsM where
   leftBoundary : List (Int × Int)
   rightBoundary : List (Int × Int)
   obstacles : List ObstacleM
-  cornerDirections : List Int
-  cornerTurnAngles : List Int
 deriving Repr, DecidableEq, FromJson
 
 structure ActM where

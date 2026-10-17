@@ -1,0 +1,74 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      REQUIRE_LEAN: "1"          # a missing Lean toolchain FAILS the Lean tests instead of skipping them
+      PYTHONHASHSEED: "0"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pytest
+
+      - name: Lean toolchain (pinned by lean/lean-toolchain)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: lake build (kernel-checks every theorem)
+        working-directory: lean
+        run: lake build
+
+      - name: Lean axiom audit (release gate)
+        run: |
+          python - <<'EOF'
+          import json, sys
+          from autocross.datagen.lean_bridge import axiom_audit, build
+          r = axiom_audit(build())
+          print(json.dumps({k: r[k] for k in ("ok", "theorems", "missing", "non_standard")}))
+          sys.exit(0 if r["ok"] else 1)
+          EOF
+
+      - name: Python tests (incl. adversarial certificate-integrity tests)
+        run: python -m pytest -q -p no:cacheprovider
+
+      - name: Deterministic manifest
+        run: |
+          python -m autocross data-manifest --profile smoke --out /tmp/m1.json
+          python -m autocross data-manifest --profile smoke --out /tmp/m2.json
+          cmp /tmp/m1.json /tmp/m2.json
+          python -m autocross data-check-manifest /tmp/m1.json
+
+      - name: Smoke corpus (bicycle backend, NOT CARLA)
+        run: python -m autocross data-generate --manifest /tmp/m1.json --backend bicycle --out /tmp/smoke --workers 4 --quiet
+
+      - name: Python corpus validation
+        run: python -m autocross data-validate /tmp/smoke
+
+      - name: Lean corpus check + per-sample kernel witnesses
+        run: python -m autocross data-lean /tmp/smoke
+
+      - name: Dataset report
+        run: python -m autocross data-report /tmp/smoke
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-reports
+          path: |
+            /tmp/smoke/validation_report.json
+            /tmp/smoke/lean_report.json
+            /tmp/smoke/dataset_report.json

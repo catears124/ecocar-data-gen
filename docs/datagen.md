@@ -93,179 +93,198 @@ the Lean checker fails until both sides agree.
 ## 3. Expert (`autocross/datagen/expert.py`, version in `EXPERT_VERSION`)
 
 The expert runs as a normal sandboxed controller in event mode: no map, and the course name is
-withheld. After the hand-over point its command is a **pure function of the observation and
-the published `VehicleParams`** (`expert_action(obs, vp, None)`). It does not read world pose,
-progress or cones, and it keeps no state. Every decision label can therefore be recomputed from
-the recorded observation; `data-validate` does so for every expert-phase sample (exact match
-required).
+withheld. After the hand-over point its command is a **pure function of the canonical policy
+observation and the published `VehicleParams`**. It does not read world pose, progress, lap,
+time, cones, the corner list or the finish distance, and it keeps no state. `data-validate`
+re-runs it on the policy observation **with every privileged field removed**
+(`records.policy_to_observation`) and requires the complete output to match: path, path frame,
+steering, pedals, target speed and certificate.
 
 Before hand-over, a scripted speed hold brings the car to the declared approach speed. It uses
-privileged scenario configuration, and those samples are phase `approach`, never clean.
+privileged scenario configuration and course progress. Those samples are phase `approach`,
+carry no certificate and are never clean.
 
-**Longitudinal decision: certified.** Model M = `cert-1` (`autocross/datagen/cert.py`, mirrored by
-`lean/Corpus/Cert.lean`) works on the observation quantised to integers: stations in mm,
-curvature in 1e-6/m, speed in mm/s. The unknowns are the squared speeds b_i at the preview
-stations, subject to:
+**Longitudinal decision: certified.** Model M = `cert-2` (`autocross/datagen/cert.py`, mirrored
+line by line by `lean/Corpus/Cert.lean`). It works on the policy observation quantised to
+integers: stations in mm, curvature in 1e-6/m, speed in mm/s. Each number is
+`floor(x·scale + ½)`, computed exactly on the decimal JSON text of the float. The unknowns are
+the squared speeds b_i ≥ 0 at the preview stations, subject to:
 
-- **Grip:** b_i · κ̄_i ≤ a_lat. κ̄_i bounds the planned path's curvature: road curvature, plus the
-  sidestep curvature 6|y|/R_SW², divided by (1 − |κ||y|).
-- **Gap speed:** beside an obstacle, b_i ≤ (5 + 6·slack)².
-- **Speed cap:** b_i ≤ V_MAX².
-- **Horizon:** b_n ≤ a_lat · R_H. A 9 m corner could start right after the preview.
+- **Grip:** b_i · κ̄_i ≤ a_lat·10⁹. κ̄_i bounds the planned path's curvature: road curvature, plus
+  the sidestep curvature 6|y|/R_SW², divided by (1 − |κ||y|).
+- **Speed cap:** b_i ≤ v_max², with v_max the vehicle's `max_speed`.
+- **Terminal constraint:** b_n ≤ a_lat · r_h. Here r_h = `cert.domain_horizon_mm` is the effective
+  radius of the tightest planned path the **declared scenario domain** allows at any station:
+  turn radius ≥ 9 m together with a sidestep of half the widest road (8 m), giving r_h = 2.55 m.
+  Every unseen station of every in-domain road therefore has cap ≥ a_lat·r_h. The validator
+  checks this domain assumption against every *visible* station (`domain_violations`).
 - **Budgets:** b_{i+1} ≤ b_i + 2·a_acc·Δs and b_i ≤ b_{i+1} + 2·a_brk·Δs.
 - **Start:** b_0 = v².
 
-Budget values: a_lat = `A_LAT_FRAC`·μg, a_brk = `A_BRAKE_PLAN`, a_acc = published max accel.
+Constants (all derived, `cert.model_constants`):
+- a_lat = ⌊⌊μg⌋/√2⌋. This is the half-side of the largest equal-axis box inside the friction
+  circle, so every plan of M respects the friction circle of a point mass. It is sound, not
+  tight.
+- a_acc = min(max_accel, box), a_brk = min(max_decel, box), a_max = max_decel (full-brake label).
+- veh_width from `VehicleParams`.
+- hold, ramp and R_SW from the lateral planner's sidestep geometry.
 
-The label is one of:
-- **`greatest_safe`**: the acceleration to F_1, where F is the forward–backward profile. Lean
-  proves (`decide_greatest_safe`, from `fpass_greatest`) that no feasible profile from the
-  current speed reaches the next station faster. In other words, no command that keeps the
-  plan feasible for every continuation consistent with what is visible can be faster.
-  `fpass_feasible` proves F itself is feasible, and `greatest_minimises` shows F minimises any
-  traversal-time objective that decreases with speed.
-- **`min_violation`**: the car is already over budget (b_0 > B_0). Full braking at `max_decel`
-  gives the pointwise-least possible speeds (`brake_least`, `decide_min_violation`), so it
-  minimises every constraint violation.
+A visible gap narrower than the car is `no_feasible_gap`. v1.0.0's gap-speed rule and safety
+margins are gone.
+
+The label (`target.longitudinal`) is one of:
+- **`greatest_safe`**: `accel_mm_s2 = ⌊(F₁ − b₀)/(2Δs₀)⌋`, where F is the forward–backward
+  profile. The Lean theorems are listed in §6. In words:
+  - F is feasible, and every feasible profile is ≤ F.
+  - F held at its last speed is safe on every in-domain continuation, and every profile that is
+    safe on the worst continuation is ≤ F. That is, no planner with the same information does
+    better.
+  - The integer acceleration is the greatest integer whose end point admits a feasible profile.
+    It lies within [−a_brk, a_acc].
+- **`min_violation`**: already over budget (b₀ > B₀).
+  - No safe profile exists.
+  - Full braking at `max_decel` gives the pointwise-least speeds, so it minimises the excess over
+    any upper speed caps.
+  - It does **not** minimise arbitrary violation measures.
 - **`no_feasible_gap`** / **`invalid_input`**: no certificate. These samples are never clean.
 
-Lean recomputes the decision from the exported quantised observation for every expert-phase
-sample and requires every clean sample to be `greatest_safe` or `min_violation`.
+**Lateral plan and steering: NOT certified.**
+- The plan is the perceived centerline, shifted into the centre of the wider free gap beside each
+  visible obstacle, using the same station widths as model M.
+- Smoothstep ramps are 18 m in and 15 m out, held ±3 m around the obstacle.
+- The path is clamped 0.3 m inside the boundaries. Pure pursuit tracks it.
+- Pedals map the certified acceleration linearly onto throttle/brake; that mapping is a tracking
+  layer and is not certified either.
+- At exact gap ties the side choice is not mirror-symmetric (tested).
 
-**Lateral plan and steering: NOT certified.** The plan is the perceived centerline, shifted into
-the centre of the wider free gap beside each visible obstacle. Side and target use the same
-station widths as model M. Smoothstep ramps are 18 m in and 15 m out, held ±3 m around the
-obstacle, and the path is clamped 0.3 m inside the boundaries. Pure pursuit tracks it. Pedals
-map the certified acceleration linearly onto throttle/brake; that mapping is a tracking layer.
+**Limitations.**
+- "Optimal" means optimal in model M for the quantised policy observation: a point mass at the
+  1 m preview stations, inside the friction box, under the declared domain.
+- It is not a claim about the simulator's tyre physics, the lateral line, or time-optimal driving
+  of the whole course.
+- Runs where tracking fails (cone hit, off course) are excluded, *not deleted*. `dataset_report.json`
+  breaks them down by factor bin and split, with Wilson intervals.
 
-**Assumptions and limitations.**
-- "Optimal" means optimal for model M on the quantised observation: point-mass grip/budget
-  constraints at 1 m stations, with the declared horizon assumption.
-- It is not a claim about the simulator's tyre physics, the lateral line, or time-optimal
-  driving of the whole course.
-- The road model is used as given; with noisy lane models the label is optimal for the noisy
-  observation.
-- Pure pursuit lags on tight, rapidly varying paths. Runs where this causes a cone hit are
-  excluded, which biases the clean set away from the hardest cells (see the per-split coverage
-  in `index.json`).
-
-## 4. Corpus layout and sample record
+## 4. Corpus layout and sample record (schema 2)
 
 ```
 <corpus>/manifest.json          byte copy of the manifest
 <corpus>/tracks/<id>.yaml        course built from the scenario parameters
 <corpus>/runs/<id>/              harness run: telemetry.csv, events.json, summary.json
 <corpus>/samples/<id>.jsonl      one record per control step (20 Hz)
-<corpus>/index.json              provenance, backend identity, per-run outcome + file hashes, totals,
-                                 realised coverage
+<corpus>/index.json              provenance, backend identity, per-run outcome, file hashes, certificate
+                                 model + constants per run, totals, realised coverage
 <corpus>/contrast_report.json    empirical check of each pair's declared effect (not a proof)
-<corpus>/validation_report.json  data-validate output
-<corpus>/lean/                   integer interchange + per-scenario certificate files
-<corpus>/lean_report.json        Lean checker verdicts + axiom audit + input hashes
+<corpus>/dataset_report.json     failures by reason / factor bin / split (Wilson 95 %), groups, ESS
+<corpus>/validation_report.json  data-validate output (informational; re-run it)
+<corpus>/lean/interchange.json   manifest interchange for the Lean checker
+<corpus>/lean_report.json        Lean verdicts, axiom audit, kernel-witness summary, toolchain and hashes
+<corpus>/RELEASE_FILES.sha256    SHA-256 of every file (release archives)
 ```
 
-Sample record (`autocross.datagen.sample`, schema 1). SI units, vehicle frame x forward / y left.
+Sample record (`autocross.datagen.sample`, schema 2). SI units, vehicle frame x forward / y left.
 `null` means NaN.
 
 | Field | Content |
 |---|---|
 | `sample_id` | `<scenario_id>:<step:05d>` (stable) |
-| `scenario_id`, `group_id`, `family`, `split`, `backend` | identity; `backend` is `bicycle` or `carla` in every record |
-| `observation` | the full `Observation` the controller received: ego state, applied actuators, road model (all preview arrays, corners, obstacles), cone detections. `x, y, yaw, progress, lap, t, step, timing_started` are available to a controller but identify the layout; do not use them as policy inputs |
-| `expert` | proposed action: `steer, throttle, brake, target_speed, path` (vehicle frame); `status`; `certificate` (`model, kind, certified, accel_mps2, accel_mm_s2, b1/b0/B0` integers); `debug` |
-| `applied` | actuator values the simulator applied on the first and last physics tick of the period (after the steering slew limit), `command_held`, `command_clipped` |
-| `outcome` | `off_course`, events during the period (cone hits, ...), minimum boundary margin, progress |
-| `oracle` | privileged ground truth (distances to corner entry, obstacle, hand-over; true obstacle extent; phase). Diagnostics only: never an input or a target |
+| `scenario_id`, `group_id`, `family`, `split`, `backend`, `step`, `t` | identity and bookkeeping (not policy inputs) |
+| `policy_observation` | **the only policy input** (`autocross.datagen.policy_observation/1`): `speed, vx, vy, yaw_rate, ax, ay, steer, throttle, brake` and `road` = `valid, range_m, lateral_offset, heading_error, curvature, width_left/right, dist_to_left/right_boundary`, the preview arrays and points, and the visible `obstacles` |
+| `target` | `autocross.datagen.training_target/1`. `longitudinal` is the CERTIFIED block: `model, kind, certified, accel_mm_s2, b1/b0/B0_mm2_s2`, or `null` in the approach phase. `uncertified` holds `steer, throttle, brake, target_speed, path, path_frame` |
+| `expert` | `phase`, `status`, planner diagnostics (`debug`: outputs, not inputs) |
+| `privileged` | `observation`: `t, step, x, y, yaw, progress, lap, timing_started, cones, road.corners, road.finish_distance`. `oracle`: phase, distances to corner/obstacle/hand-over, true obstacle extent. Evaluation only |
+| `applied` | actuator values on the first and last physics tick of the period, `command_held`, `command_clipped` |
+| `outcome` | `off_course`, events during the period, minimum boundary margin, progress |
 | `timing` | wall-clock step latency (nondeterministic; excluded from hashes) |
 | `quality` | `clean`, `exclusion_reasons`, `label_replay_max_abs_diff` |
-| `content_sha256` | SHA-256 of (observation, expert steer/throttle/brake) |
+| `hashes` | `policy_observation`, `target`, `content` (= policy observation + target; duplicate detection), `record` (the whole record except `hashes` and `timing`). Canonical JSON: sorted keys, no whitespace, shortest float repr |
+
+**Why corners, cones and the finish distance are privileged.**
+- The corner list is computed from the whole course: whether a partly visible corner is listed,
+  and where its apex is, depend on geometry beyond the preview (tested).
+- Cone detections reach 30 m, which exceeds the short previews.
+- The finish distance is lap bookkeeping.
 
 **Clean** means all of the following:
-- the decision-window phase, from hand-over to 20 m past the turn exit;
-- a clean run: finished, no cone hit, no off-course, no missed gate, no controller error, no
-  held command;
-- the hand-over realised (speed within 0.5 m/s, |lateral| ≤ 0.25 m, |heading| ≤ 0.035 rad,
-  nothing visible yet);
-- a certified decision (`greatest_safe` or `min_violation`);
+- decision-window phase;
+- a clean run (finished, no cone hit, no off-course, no missed gate, no controller error, no held
+  command);
+- the hand-over realised;
+- a certified longitudinal label;
 - an unclipped command;
 - an exact label replay.
 
-Failed or ambiguous runs stay in the corpus with `clean: false` and reasons. One failure excludes
-the whole run, not just the nearby samples.
-
-**Imitation targets.** `expert.certificate.accel_mps2` is the certified longitudinal decision.
-`expert.steer`, `expert.path`, `throttle` and `brake` are the uncertified tracking outputs.
+Failed runs stay in the corpus with reasons. Use `autocross.datagen.dataset.iter_examples`, which
+yields `(policy_observation, training_target, certificate_status, metadata)`, validates
+schema/backend, and never reads `privileged`.
 
 ## 5. Validation (`data-validate`)
 
 `data-validate` recomputes and fails on any of:
 - schema/version errors;
-- a manifest that fails `check_manifest`;
-- manifest/index hashes;
-- file SHA-256s;
-- the course YAML not matching the manifest parameters;
-- run provenance: backend, seed, preview range, expert hash, perception (no-map) mode;
-- run outcome and failure list recomputed from samples + `events.json` + `summary.json`;
-- contiguous steps and stable sample IDs;
-- identity fields and content hashes;
-- finite numbers and command ranges;
-- applied actuation equal to the actuator model applied to the proposed action;
-- exclusion reasons recomputed from the record;
-- label replay for every expert-phase sample (exact, including the certificate integers);
+- manifest and file hashes;
+- unexpected or unreferenced files;
+- course and run provenance;
+- per-run certificate model and constants equal to `model_constants(vehicle)`;
+- record structure, including the policy-input whitelist;
+- **every per-record hash**;
+- run outcome and exclusion reasons;
+- **full label replay** of every sample from its policy observation alone. The tolerance is 1e-9
+  absolute on floats; integers, strings and structure must match exactly;
+- **independent certificate recomputation**;
+- the domain-assumption check;
+- applied-action consistency;
 - identical clean content in two splits;
-- group, scenario hash or contrast pair spanning splits;
-- a scenario whose split differs from its region's split;
-- realised coverage: cells covered by clean runs. Missing cells are errors unless
-  `--allow-missing-coverage`.
+- group, scenario or contrast pair spanning splits;
+- index totals;
+- clean ⇒ certified;
+- realised coverage.
+
+Editing a record and recomputing its hashes and the file hash is still caught, by replay and
+recomputation (`tests/test_certification.py`).
 
 ## 6. Lean (`lean/`, Lean 4.35.0, core only)
 
-`data-lean <manifest.json | corpus>` exports integers only (`lean/interchange.json`,
-`lean/certs/*.json`), builds the checker, runs it, and runs the axiom audit
-(`Corpus/Audit.lean`: only `propext`, `Classical.choice`, `Quot.sound`; no `sorry`).
+`data-lean <corpus>` runs, and requires all of:
+1. `lake build`, which makes the kernel check every theorem;
+2. the **axiom audit** (`Corpus/Audit.lean`, release gate): every listed theorem uses only
+   `propext`, `Classical.choice`, `Quot.sound`;
+3. `corpuscheck` (compiled Lean). It reads `index.json` and **every sample record** itself,
+   quantises each policy observation, evaluates `Cert.decide`, and compares the result with the
+   recorded certificate (kind, a, b1, b0, B0, certified, model). It requires:
+   - clean ids = clean ids with a verified certified label, non-empty when claimed;
+   - `sample_id = run:step`, with step = line index and unique runs;
+   - `samples/` to hold exactly the referenced files;
+   - all counts equal to the index;
+   - no clean content in two splits;
+   - the manifest properties (spec, validity verdicts, pairs, splits, coverage);
+4. **kernel witnesses**: one theorem `Cert.decide c q = <recorded decision>` per clean sample,
+   generated by `corpuscheck` from the records and proved `by decide` by the Lean kernel.
+   Theorem ids must equal the clean sample ids.
 
-**Theorems** (kernel-checked when `lake build` succeeds):
+**Theorems** (`Corpus/Cert.lean`):
 
 | Theorem | Statement |
 |---|---|
-| `Cert.le_bpass`, `Cert.fpass_greatest` | every feasible profile is ≤ the backward pass / ≤ the forward–backward profile |
-| `Cert.fpass_feasible` | the forward–backward profile is feasible (non-negative budgets and gaps) |
-| `Cert.brake_least` | full braking is the pointwise-least possible profile |
-| `Cert.greatest_minimises` | a pointwise-greatest profile minimises any speed-antitone objective |
-| `Cert.decide_greatest_safe`, `Cert.decide_min_violation` | link the decision function to the two certificates |
-| `adjCheck_sound` | the linear check on hash-sorted clean samples implies no content in two splits |
-| `pairs_within_split` | group consistency + pair integrity ⇒ no pair crosses splits |
-| `full_coverage_of_exact` | an exact coverage report with no missing cells ⇒ every required cell is covered |
-| `mirrorObs_involutive`, `mirrorAct_involutive`, `mirror_gap_swap`, `mirror_interval`, `mirror_steer_bound`, `chooseSide_mirror` | the mirror transform is an involution; it swaps gaps, keeps obstacle intervals and steering bounds; the gap-side rule flips (strict cases; the expert's exact-tie break is not mirror-symmetric) |
+| `le_bpass`, `fpass_greatest` | every feasible profile is ≤ the backward pass / the forward–backward profile |
+| `fpass_feasible` | the forward–backward profile is feasible (non-negative budgets, gaps, caps, start) |
+| `accel_greatest`, `decide_accel_greatest` | the floor-rounded integer action is in [−a_brk, a_acc], starts a feasible profile, and no larger integer does |
+| `robust_extend`, `decide_robust_extend` | a profile feasible with terminal cap `min cP cH`, held at its last speed, is feasible on every continuation whose caps are ≥ cH |
+| `robust_necessary`, `decide_robust_greatest` | a profile safe on the worst continuation satisfies the terminal cap, hence is ≤ F |
+| `decide_greatest_safe`, `decide_greatest_safe_feasible`, `decide_greatest_safe_minimises` | the decision's b1 is maximal; F is feasible and minimises any speed-antitone objective |
+| `brake_least`, `brake_minimises_excess`, `decide_min_violation`, `decide_min_violation_infeasible`, `decide_min_violation_robust` | over budget: no safe profile exists; full braking is pointwise least and minimises excess over upper caps |
+| `noCrossSplit_of_check`, `adjCheck_sound` | the checker's leakage test is sound (sorting is a proven permutation) |
+| `pairs_within_split`, `full_coverage_of_exact`, mirror lemmas | manifest properties, as in v1.0.0 |
 
-**Checks on the actual artifacts** (each a `Decidable` proposition, or a checker with a soundness
-theorem):
-
-- spec equality with `Corpus.btoSpec`;
-- Python's formal verdict ⇔ Lean's `Valid` for every exported draw;
-- accepted scenarios valid, with correct bins;
-- unique IDs and hashes;
-- contrast-pair integrity;
-- the split rule, group/hash split consistency;
-- required cells and exact manifest coverage;
-- realised coverage exactness;
-- no clean content in two splits;
-- the Python mirror transform equals the Lean one on exported samples;
-- certified decisions recomputed for every expert-phase sample;
-- every clean label certified.
-
-**Trust boundary.** Lean proves properties of its own model, and the checker decides them on the
-integers it is given. Trusted and unverified:
-- the Lean compiler and runtime;
-- JSON decoding;
-- the Python export: float → fixed-point quantisation, and the choice of which samples are
-  exported. The validator cross-checks this against the records.
-
-Not covered at all:
-- whether model M describes the simulator (CARLA or bicycle) or a real car;
-- the uncertified steering/path;
-- whether a policy trained on the data generalises;
-- anything about CARLA physics or Python execution.
+**Trust boundary.**
+- Kernel-checked: the theorems and every per-sample witness equality.
+- Trusted:
+  - the compiled `corpuscheck`, i.e. the Lean compiler/runtime and JSON parser. It produces the
+    witnesses' `q` and recomputes all certificates;
+  - the Python generator and simulator;
+  - the derivation of the integer constants from `VehicleParams` and of r_h from the domain;
+  - the assumption that the lateral planner's curvature is ≤ κ̄.
+- Not covered: CARLA/bicycle physics, steering/path, real-sensor visibility, learned policies.
 
 ## 7. Reproducibility
 
@@ -291,5 +310,7 @@ Not covered at all:
 
 `data-generate --backend carla` requires the `carla==0.9.16` client (Python 3.10–3.12) and a
 reachable server. Otherwise it stops before writing anything, with a message and exit code 3.
-CARLA corpora are generated with one worker. The bicycle backend corpus is labelled `bicycle` in
-every record and in `index.json`; it is a tooling and logic check, not evidence about CARLA.
+CARLA corpora are generated with one worker and are kept separate from bicycle corpora: every
+record and `index.json` name the backend. The CARLA course is a generated flat OpenDRIVE 1.4 pad
+with cones, not an arbitrary OpenDRIVE road network. The same validation and Lean gates apply.
+Certificates are about model M, not CARLA physics.

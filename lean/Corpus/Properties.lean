@@ -153,4 +153,17 @@ theorem adjCheck_sound : ∀ l : List (Nat × Nat), adjCheck l = true → NoCros
       · have := hhead x hx'; unfold AdjOK at this; omega
       · exact ih (adjCheck_tail h) x hx' y hy' hxy
 
+/-- Sort by (hash, split) with the core `mergeSort` (proved to be a permutation). -/
+def sortPairs (l : List (Nat × Nat)) : List (Nat × Nat) :=
+  l.mergeSort fun a b => decide (a.1 < b.1) || (a.1 == b.1 && decide (a.2 ≤ b.2))
+
+/-- The checker's test on its own (unsorted) list of clean samples is sound: sorting is a
+permutation (`List.mergeSort_perm`), so `adjCheck` on the sorted list rules out cross-split
+duplicates in the original list. -/
+theorem noCrossSplit_of_check (l : List (Nat × Nat)) (h : adjCheck (sortPairs l) = true) :
+    NoCrossSplitDuplicates l := by
+  intro x hx y hy hxy
+  have p := List.mergeSort_perm l (fun a b => decide (a.1 < b.1) || (a.1 == b.1 && decide (a.2 ≤ b.2)))
+  exact adjCheck_sound _ h x (p.mem_iff.mpr hx) y (p.mem_iff.mpr hy) hxy
+
 end Corpus

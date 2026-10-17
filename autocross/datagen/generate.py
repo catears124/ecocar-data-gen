@@ -33,7 +33,8 @@ from . import (GENERATOR_NAME, GENERATOR_VERSION, INDEX_SCHEMA, SAMPLE_SCHEMA, S
 from . import cert
 from . import expert as expert_mod
 from .design import check_manifest, required_cells
-from .records import command_to_dict, content_hash, obs_from_dict, obs_to_dict
+from .records import (command_to_dict, merge_observation, obs_from_dict, obs_to_dict, policy_to_observation,
+                      sample_hashes, split_observation, training_target)
 from .spec import get_family, sha256_obj
 from ..api import Command, VehicleParams
 from ..config import ROOT, deep_update, load_sim_config, load_yaml
@@ -56,8 +57,10 @@ def expert_identity() -> dict:
             "source": str(EXPERT_PATH.relative_to(ROOT)).replace(os.sep, "/"), "source_sha256": file_sha256(EXPERT_PATH),
             "certificate_model": cert.CERT_MODEL, "certificate_source_sha256": file_sha256(cert.__file__),
             "params": dict(expert_mod.PARAMS), "causal": True,
-            "inputs": "Observation.road (+ speed, ay) and published VehicleParams; no map, world pose, progress or cones "
-                      "after hand-over; scripted approach before hand-over uses scenario config (phase=approach)"}
+            "inputs": "expert phase: the canonical policy observation only (records.split_observation whitelist: ego "
+                      "motion/actuator state and the road model of the visible preview) and published VehicleParams; "
+                      "replayed with every privileged field removed. Scripted approach before hand-over uses scenario "
+                      "config and course progress (phase=approach, never clean)"}
 
 
 # ------------------------------------------------------------------ backend identity
@@ -181,39 +184,69 @@ def run_outcome(summary: dict, events: list, steps: list, layout: dict, params: 
 
 
 def certificate_block(dbg: dict) -> dict | None:
-    """Certified longitudinal decision as recorded by the expert (integers of model cert-1)."""
+    """Longitudinal decision as recorded by the expert (integers of model cert-2). Every key is
+    always present (``None`` when the branch has no such value)."""
     if dbg.get("cert_kind") is None:
         return None
     kind = int(dbg["cert_kind"])
     out = {"model": cert.CERT_MODEL, "kind": cert.KIND_NAMES.get(kind, "unknown"),
-           "certified": kind in (cert.KIND_GREATEST_SAFE, cert.KIND_MIN_VIOLATION),
-           "accel_mm_s2": int(dbg["cert_a"]), "accel_mps2": int(dbg["cert_a"]) / 1000.0}
+           "certified": kind in cert.CERTIFIED_KINDS, "accel_mm_s2": int(dbg["cert_a"])}
     for k in ("b1", "b0", "B0"):
-        if dbg.get(f"cert_{k}") is not None:
-            out[f"{k}_mm2_s2"] = int(dbg[f"cert_{k}"])
+        v = dbg.get(f"cert_{k}")
+        out[f"{k}_mm2_s2"] = None if v is None else int(v)
     return out
 
 
-def replay_diff(obs_dict: dict, raw: dict, vp: VehicleParams, config: dict | None) -> float:
-    """Max abs difference between the recorded action and the expert re-run on the recorded
-    observation (``config=None`` for decision samples: proves they do not use scenario config)."""
-    cmd = expert_action_dict(obs_dict, vp, config)
-    diffs = [abs((cmd[k] if cmd[k] is not None else math.nan) - (raw[k] if raw[k] is not None else math.nan))
-             for k in ("steer", "throttle", "brake")]
-    for k in ("target_speed",):
-        a, b = cmd.get(k), raw.get(k)
-        if (a is None) != (b is None):
+def tree_diff(a, b) -> float:
+    """Max abs difference between two JSON trees: floats within tolerance, everything else
+    (ints, strings, booleans, None, list lengths, key sets, int-vs-float type) must be equal,
+    otherwise ``inf``."""
+    if isinstance(a, bool) or isinstance(b, bool) or a is None or b is None or isinstance(a, str) or isinstance(b, str):
+        return 0.0 if (type(a) is type(b) and a == b) else math.inf
+    if isinstance(a, int) and isinstance(b, int):
+        return 0.0 if a == b else math.inf
+    if isinstance(a, float) and isinstance(b, float):
+        d = abs(a - b)
+        return d if math.isfinite(d) else math.inf
+    if isinstance(a, list) and isinstance(b, list):
+        if len(a) != len(b):
             return math.inf
-        if a is not None:
-            diffs.append(abs(a - b))
-    for k in ("cert_kind", "cert_a", "cert_b1", "cert_b0", "cert_B0"):  # certified integers: exact
-        if cmd["debug"].get(k) != raw["debug"].get(k):
+        return max((tree_diff(x, y) for x, y in zip(a, b)), default=0.0)
+    if isinstance(a, dict) and isinstance(b, dict):
+        if set(a) != set(b):
             return math.inf
-    return max((d if math.isfinite(d) else math.inf) for d in diffs)
+        return max((tree_diff(a[k], b[k]) for k in a), default=0.0)
+    return math.inf
 
 
-def expert_action_dict(obs_dict: dict, vp: VehicleParams, config: dict | None) -> dict:
-    return command_to_dict(expert_mod.expert_action(obs_from_dict(obs_dict), vp, config))
+def expert_label(policy: dict, privileged: dict | None, vp: VehicleParams, config: dict | None) -> tuple[dict, dict]:
+    """(training target, expert diagnostics) of the expert re-run. Expert phase (``config=None``):
+    the expert sees ONLY the canonical policy observation (``privileged`` is ignored). Scripted
+    approach: the full observation and the scenario config."""
+    if config is None:
+        obs = policy_to_observation(policy)
+    else:
+        obs = obs_from_dict(merge_observation(policy, privileged))
+    raw = command_to_dict(expert_mod.expert_action(obs, vp, config))
+    return label_blocks(raw, approach=config is not None)
+
+
+def label_blocks(raw: dict, approach: bool) -> tuple[dict, dict]:
+    dbg = raw["debug"]
+    st = dbg.get("status")
+    target = training_target(raw, None if approach else certificate_block(dbg))
+    expert = {"phase": "approach" if approach else "expert",
+              "status": expert_mod.STATUS_NAMES.get(int(st), "unknown") if st is not None else "unknown", "debug": dbg}
+    return target, expert
+
+
+def replay_diff(rec: dict, vp: VehicleParams, config: dict | None) -> float:
+    """Max difference between the recorded expert output (complete training target: certificate,
+    path, path frame, steering, pedals, target speed; and the expert diagnostics) and the expert
+    re-run on the recorded policy observation. Floats within ``REPLAY_TOL``; integers, strings
+    and structure exact."""
+    target, expert = expert_label(rec["policy_observation"], rec["privileged"]["observation"], vp, config)
+    return max(tree_diff(target, rec["target"]), tree_diff(expert, rec["expert"]))
 
 
 def build_samples(entry: dict, steps: list, vp: VehicleParams, backend: str, run_fails: list[str],
@@ -238,50 +271,52 @@ def build_samples(entry: dict, steps: list, vp: VehicleParams, backend: str, run
         reasons += [f"run:{f}" for f in run_fails]
         if raw is None:
             reasons.append("command_invalid")
-            rdiff = None
         else:
             status = int(dbg.get("status", -1)) if dbg.get("status") is not None else -1
             if phase != "approach" and status not in (expert_mod.STATUS_OK, expert_mod.STATUS_OVER_BUDGET):
                 reasons.append(f"expert_status:{expert_mod.STATUS_NAMES.get(status, status)}")
-            rdiff = replay_diff(o, raw, vp, None if phase != "approach" else expert_cfg)
-            if not rdiff <= REPLAY_TOL:
-                reasons.append("label_replay_mismatch")
         if s["held"]:
             reasons.append("command_held")
         if s["clipped"]:
             reasons.append("command_clipped")
         if s["first"] is None:
             reasons.append("no_physics_tick")
+        pol, priv = split_observation(o)
+        target, expert = (None, None) if raw is None else label_blocks(raw, approach=phase == "approach")
+        if target is not None and phase != "approach" and not (target["longitudinal"] or {}).get("certified"):
+            reasons.append("label_uncertified")  # a clean sample must carry a certified longitudinal label
         rec = {
             "schema": SAMPLE_SCHEMA, "schema_version": SCHEMA_VERSION,
             "sample_id": f"{entry['scenario_id']}:{o['step']:05d}",
             "scenario_id": entry["scenario_id"], "group_id": entry["group_id"], "family": entry["family"],
             "split": entry["split"], "backend": backend, "step": o["step"], "t": o["t"],
-            "observation": o,
-            "expert": None if raw is None else {
-                "steer": raw["steer"], "throttle": raw["throttle"], "brake": raw["brake"],
-                "target_speed": raw["target_speed"], "path": raw["path"], "path_frame": raw["path_frame"],
-                "phase": phase if phase == "approach" else "expert",
-                "status": expert_mod.STATUS_NAMES.get(int(dbg["status"]), "unknown") if dbg.get("status") is not None else "unknown",
-                "certificate": certificate_block(dbg) if phase != "approach" else None,
-                "debug": dbg},
+            "policy_observation": pol,   # the ONLY policy input (whitelist)
+            "target": target,            # training target: certified longitudinal + uncertified lateral/actuator
+            "expert": expert,            # phase, status, planner diagnostics (outputs, not inputs)
+            "privileged": {              # never a policy input or target: evaluation/diagnostics only
+                "observation": priv,
+                "oracle": {
+                    "phase": phase,
+                    "distance_to_corner_entry_m": lay["corner_entry_progress"] - prog,
+                    "distance_to_obstacle_m": lay["obstacle_progress"] - prog,
+                    "distance_to_handover_m": lay["handover_progress"] - prog,
+                    "obstacle_lateral_min_m": lay["obstacle_lateral_min_m"],
+                    "obstacle_lateral_max_m": lay["obstacle_lateral_max_m"]}},
             "applied": {"first_tick": s["first"], "end_of_period": s["last"], "ticks": s["ticks"],
                         "command_held": s["held"], "command_clipped": s["clipped"]},
             "outcome": {"off_course": s["off_course"], "events": s["events"],
                         "min_boundary_margin_m": _num(s["min_boundary_margin"]) if s["ticks"] else None,
                         "progress_end": s["progress_end"]},
-            "oracle": {  # privileged ground truth: diagnostics only, never an input or target
-                "phase": phase,
-                "distance_to_corner_entry_m": lay["corner_entry_progress"] - prog,
-                "distance_to_obstacle_m": lay["obstacle_progress"] - prog,
-                "distance_to_handover_m": lay["handover_progress"] - prog,
-                "obstacle_lateral_min_m": lay["obstacle_lateral_min_m"],
-                "obstacle_lateral_max_m": lay["obstacle_lateral_max_m"]},
             "timing": s["timing"],  # wall-clock dependent: not reproducible, excluded from hashes
-            "quality": {"clean": not reasons, "exclusion_reasons": reasons,
-                        "label_replay_max_abs_diff": rdiff if rdiff is None or math.isfinite(rdiff) else None},
+            "quality": {"clean": False, "exclusion_reasons": reasons, "label_replay_max_abs_diff": None},
         }
-        rec["content_sha256"] = content_hash(o, rec["expert"]) if raw is not None else None
+        if raw is not None:
+            rdiff = replay_diff(rec, vp, expert_cfg if phase == "approach" else None)
+            if not rdiff <= REPLAY_TOL:
+                reasons.append("label_replay_mismatch")
+            rec["quality"]["label_replay_max_abs_diff"] = rdiff if math.isfinite(rdiff) else None
+        rec["quality"]["clean"] = not reasons
+        rec["hashes"] = sample_hashes(rec)
         out.append(rec)
     return out
 
@@ -336,12 +371,12 @@ def run_scenario(e: dict, cfg: dict, out: Path, backend: str) -> dict:
     os.replace(tmp, spath)
     entry.update({
         "status": "completed", "clean_run": not fails, "run_failures": fails, "outcome": outcome,
-        "vehicle": summary["vehicle"], "sim_time_s": summary["sim_time_s"],
+        "vehicle": summary["vehicle"], "cert_model": cert.CERT_MODEL, "cert_constants": expert_mod.model_constants(vp),
+        "sim_time_s": summary["sim_time_s"],
         "wall_time_s": round(time.perf_counter() - t0, 2), "n_samples": len(samples),
-        "n_decision": sum(1 for s in samples if s["oracle"]["phase"] == "decision"),
+        "n_decision": sum(1 for s in samples if s["privileged"]["oracle"]["phase"] == "decision"),
         "n_clean": sum(1 for s in samples if s["quality"]["clean"]),
-        "n_certified_clean": sum(1 for s in samples if s["quality"]["clean"] and s["expert"]["certificate"]
-                                 and s["expert"]["certificate"]["certified"]),
+        "n_certified_clean": sum(1 for s in samples if s["quality"]["clean"] and is_certified(s)),
         "files": {"samples": _fref(out, spath), "track": _fref(out, track_path),
                   **{k: _fref(out, run_dir / k) for k in ("telemetry.csv", "events.json", "summary.json")}},
     })
@@ -468,8 +503,13 @@ def _write_index(out: Path, index: dict, family, manifest: dict) -> None:
         "scenarios_run": len(sc), "clean_runs": sum(1 for s in sc if s.get("clean_run")),
         "samples": sum(s.get("n_samples", 0) for s in sc), "clean_samples": sum(s.get("n_clean", 0) for s in sc),
         "clean_certified_samples": sum(s.get("n_certified_clean", 0) for s in sc),
+        "clean_uncertified_samples": sum(s.get("n_clean", 0) - s.get("n_certified_clean", 0) for s in sc),
         "clean_samples_by_split": {sp: sum(s.get("n_clean", 0) for s in sc if s["split"] == sp)
                                    for sp in ("train", "val", "test")},
+        "clean_runs_by_split": {sp: sum(1 for s in sc if s.get("clean_run") and s["split"] == sp)
+                                for sp in ("train", "val", "test")},
+        "scenario_groups": len({s["group_id"] for s in sc}),
+        "clean_scenario_groups": len({s["group_id"] for s in sc if s.get("clean_run") and s.get("n_clean", 0) > 0}),
         "run_failures": _count(f for s in sc for f in s.get("run_failures", [])),
     }
     index["coverage_realised"] = realised_coverage(manifest, index)
@@ -491,16 +531,23 @@ def load_samples(path) -> list[dict]:
         return [json.loads(line) for line in f if line.strip()]
 
 
+def is_certified(s: dict) -> bool:
+    """The sample carries a certified longitudinal label (kind greatest_safe or min_violation)."""
+    lon = (s.get("target") or {}).get("longitudinal")
+    return bool(lon and lon.get("certified"))
+
+
 def _series(samples: list[dict]) -> dict | None:
-    dec = [s for s in samples if s["oracle"]["phase"] == "decision" and s["expert"] is not None]
+    dec = [s for s in samples if s["privileged"]["oracle"]["phase"] == "decision" and s["target"] is not None]
     if len(dec) < 3:
         return None
-    d = np.array([s["oracle"]["distance_to_corner_entry_m"] for s in dec])
+    d = np.array([s["privileged"]["oracle"]["distance_to_corner_entry_m"] for s in dec])
     order = np.argsort(d)
     get = lambda f: np.array([f(s) for s in dec])[order]  # noqa: E731
-    return {"d": d[order], "steer": get(lambda s: s["expert"]["steer"]), "brake": get(lambda s: s["expert"]["brake"]),
-            "throttle": get(lambda s: s["expert"]["throttle"]), "speed": get(lambda s: s["observation"]["speed"]),
-            "d_obs": get(lambda s: s["oracle"]["distance_to_obstacle_m"]),
+    act = lambda k: get(lambda s: s["target"]["uncertified"][k])  # noqa: E731
+    return {"d": d[order], "steer": act("steer"), "brake": act("brake"), "throttle": act("throttle"),
+            "speed": get(lambda s: s["policy_observation"]["speed"]),
+            "d_obs": get(lambda s: s["privileged"]["oracle"]["distance_to_obstacle_m"]),
             "side": [s["expert"]["debug"].get("side") for s in dec if s["expert"]["debug"].get("n_obstacles")]}
 
 

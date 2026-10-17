@@ -1,17 +1,26 @@
-"""Lossless JSON (de)serialisation of controller observations and expert commands, content
-hashing, and the mirror (y -> -y) transform of a sample.
+"""Lossless JSON (de)serialisation of controller observations and expert commands, the canonical
+policy-input / training-target split of a sample, content hashing, and the mirror (y -> -y)
+transform of a policy observation.
 
 Floats are written with Python's shortest round-trip repr, so ``obs_from_dict(obs_to_dict(o))``
 reproduces every float bit for bit. JSON has no NaN: a NaN float is written as ``null`` and read
 back as NaN (e.g. ``finish_distance`` beyond range, a corner apex not yet visible). Infinite
-values are rejected."""
+values are rejected.
+
+Policy observation (``split_observation``): an explicit WHITELIST of what a policy may consume:
+ego motion and actuator state (``POLICY_EGO``) and the road model of the visible preview
+(``POLICY_ROAD_*``, obstacles inside the preview). Everything else a controller receives is
+``privileged`` and is stored in a separate block of the sample: simulation time and step, world
+pose, course progress and lap bookkeeping, raw cone detections (their 30 m range can exceed the
+scenario's preview), the corner list (its existence, apex and fully-visible fields are computed
+from the WHOLE course, including geometry beyond the preview) and ``finish_distance``."""
 from __future__ import annotations
 
 import math
 
 import numpy as np
 
-from ..api import CONE_LEFT, CONE_RIGHT, Command, ConeDetections, Corner, ObstacleInfo, Observation, RoadModel
+from ..api import Command, ConeDetections, Corner, ObstacleInfo, Observation, RoadModel
 from .spec import canonical_json, sha256_text
 
 OBS_SCALARS = ("t", "step", "x", "y", "yaw", "vx", "vy", "yaw_rate", "ax", "ay", "speed", "steer", "throttle", "brake",
@@ -22,9 +31,16 @@ ROAD_VECTORS = ("preview_s", "preview_curvature", "preview_width_left", "preview
 ROAD_POINTS = ("preview_centerline", "preview_left_boundary", "preview_right_boundary")
 CORNER_FIELDS = ("direction", "entry_distance", "apex_distance", "exit_distance", "min_radius", "turn_angle",
                  "fully_visible")
-# Fields a controller receives but that a generalising policy should not consume: world pose and
-# race bookkeeping identify the course layout rather than the situation.
-NON_GENERALISING_INPUTS = ("x", "y", "yaw", "progress", "lap", "timing_started", "t", "step")
+
+# ---- the canonical policy input (whitelist) and what is privileged (everything else)
+POLICY_EGO = ("speed", "vx", "vy", "yaw_rate", "ax", "ay", "steer", "throttle", "brake")
+POLICY_ROAD_SCALARS = ("valid", "range_m", "lateral_offset", "heading_error", "curvature", "width_left", "width_right",
+                       "dist_to_left_boundary", "dist_to_right_boundary")
+POLICY_ROAD_KEYS = POLICY_ROAD_SCALARS + ROAD_VECTORS + ROAD_POINTS + ("obstacles",)
+PRIVILEGED_OBS = tuple(k for k in OBS_SCALARS if k not in POLICY_EGO) + ("cones",)
+PRIVILEGED_ROAD = ("corners", "finish_distance")
+POLICY_OBSERVATION_SCHEMA = "autocross.datagen.policy_observation/1"
+TRAINING_TARGET_SCHEMA = "autocross.datagen.training_target/1"
 
 
 def _f(x):
@@ -104,6 +120,51 @@ def obs_from_dict(d: dict) -> Observation:
     return Observation(**kw)
 
 
+# ------------------------------------------------------------------ policy input / privileged split
+def split_observation(d: dict) -> tuple[dict, dict]:
+    """(policy_observation, privileged_observation) of a serialised observation. Lossless:
+    ``merge_observation(*split_observation(d)) == d``."""
+    pol = {"schema": POLICY_OBSERVATION_SCHEMA, **{k: d[k] for k in POLICY_EGO}}
+    priv = {k: d[k] for k in PRIVILEGED_OBS}
+    r = d.get("road")
+    if r is None:
+        pol["road"] = None
+        priv["road"] = None
+    else:
+        pol["road"] = {k: r[k] for k in POLICY_ROAD_KEYS}
+        priv["road"] = {k: r[k] for k in PRIVILEGED_ROAD}
+    return pol, priv
+
+
+def merge_observation(policy: dict, privileged: dict) -> dict:
+    """Inverse of ``split_observation`` (the full controller observation)."""
+    d = {k: policy[k] for k in POLICY_EGO}
+    d.update({k: privileged[k] for k in PRIVILEGED_OBS})
+    d = {k: d[k] for k in OBS_SCALARS + ("cones",)}
+    if policy["road"] is None:
+        d["road"] = None
+    else:
+        r = {**policy["road"], **privileged["road"]}
+        d["road"] = {k: r[k] for k in ROAD_SCALARS + ROAD_VECTORS + ROAD_POINTS + ("corners", "obstacles")}
+    return d
+
+
+def policy_to_observation(policy: dict) -> Observation:
+    """An ``Observation`` carrying ONLY the policy input: every privileged field is replaced by an
+    uninformative sentinel (NaN pose/time/progress, no cones, no corners, NaN finish distance)."""
+    if set(policy) != {"schema", "road", *POLICY_EGO} or policy["schema"] != POLICY_OBSERVATION_SCHEMA:
+        raise ValueError("not a canonical policy observation")
+    sentinel = {"t": None, "step": -1, "x": None, "y": None, "yaw": None, "progress": None, "lap": -1,
+                "timing_started": False, "cones": None}
+    road = policy["road"]
+    if road is not None:
+        if set(road) != set(POLICY_ROAD_KEYS):
+            raise ValueError("policy road model has non-canonical fields")
+        road = {**road, "corners": [], "finish_distance": None}
+    return obs_from_dict({**sentinel, **{k: policy[k] for k in POLICY_EGO}, "road": road})
+
+
+# ------------------------------------------------------------------ expert command / training target
 def command_to_dict(cmd: Command | None) -> dict | None:
     """Raw controller output as proposed (path in the controller's own frame)."""
     if cmd is None:
@@ -115,10 +176,30 @@ def command_to_dict(cmd: Command | None) -> dict | None:
             "debug": {str(k): _f(v) for k, v in sorted((cmd.debug or {}).items())}}
 
 
-def content_hash(observation: dict, expert: dict) -> str:
-    """Identity of an imitation example: the observation and the proposed action."""
-    return sha256_text(canonical_json({"observation": observation,
-                                       "action": {k: expert[k] for k in ("steer", "throttle", "brake")}}))
+def training_target(raw: dict, certificate: dict | None) -> dict:
+    """The imitation target of one step. ``longitudinal`` is the certified quantity (integer
+    acceleration in mm/s^2 of model cert-2, with its kind); ``uncertified`` holds the lateral path,
+    steering, the pedal mapping and the target speed, which carry NO formal guarantee."""
+    return {"schema": TRAINING_TARGET_SCHEMA, "longitudinal": certificate,
+            "uncertified": {k: raw[k] for k in ("steer", "throttle", "brake", "target_speed", "path", "path_frame")}}
+
+
+def content_hash(policy_observation: dict, target: dict) -> str:
+    """Identity of an imitation example: the policy observation and the full training target."""
+    return sha256_text(canonical_json({"policy_observation": policy_observation, "target": target}))
+
+
+def record_hash(rec: dict) -> str:
+    """Hash of a whole sample record except its own ``hashes`` block and the wall-clock ``timing``."""
+    return sha256_text(canonical_json({k: v for k, v in rec.items() if k not in ("hashes", "timing")}))
+
+
+def sample_hashes(rec: dict) -> dict:
+    out = {"policy_observation": sha256_text(canonical_json(rec["policy_observation"])),
+           "target": None if rec["target"] is None else sha256_text(canonical_json(rec["target"])),
+           "content": None if rec["target"] is None else content_hash(rec["policy_observation"], rec["target"])}
+    out["record"] = record_hash(rec)
+    return out
 
 
 # ------------------------------------------------------------------ mirror transform
@@ -131,15 +212,11 @@ def _mpts(pts):
 
 
 def mirror_observation(d: dict) -> dict:
-    """Reflect an observation across the vehicle's x axis (world: y -> -y, yaw -> -yaw).
-    Left and right swap: boundaries, widths, cone colours, corner directions, obstacle extents."""
+    """Reflect a policy observation across the vehicle's x axis. Left and right swap: boundaries,
+    widths, obstacle extents; lateral quantities change sign."""
     m = dict(d)
-    for k in ("y", "yaw", "vy", "yaw_rate", "ay", "steer"):
+    for k in ("vy", "yaw_rate", "ay", "steer"):
         m[k] = _neg(d[k])
-    c = d.get("cones")
-    if c is not None:
-        swap = {CONE_LEFT: CONE_RIGHT, CONE_RIGHT: CONE_LEFT}
-        m["cones"] = {**c, "positions": _mpts(c["positions"]), "colors": [swap.get(v, v) for v in c["colors"]]}
     r = d.get("road")
     if r is not None:
         mr = dict(r)
@@ -152,7 +229,6 @@ def mirror_observation(d: dict) -> dict:
         mr["preview_centerline"] = _mpts(r["preview_centerline"])
         mr["preview_left_boundary"] = _mpts(r["preview_right_boundary"])
         mr["preview_right_boundary"] = _mpts(r["preview_left_boundary"])
-        mr["corners"] = [{**cn, "direction": -cn["direction"], "turn_angle": _neg(cn["turn_angle"])} for cn in r["corners"]]
         mr["obstacles"] = [{**o, "lateral_min": _neg(o["lateral_max"]), "lateral_max": _neg(o["lateral_min"]),
                             "center": [o["center"][0], _neg(o["center"][1])], "points": _mpts(o["points"])}
                            for o in r["obstacles"]]
@@ -160,15 +236,10 @@ def mirror_observation(d: dict) -> dict:
     return m
 
 
-MIRROR_ODD_DEBUG = ("side", "plan_offset_ld")
-
-
 def mirror_action(a: dict) -> dict:
-    """Steering and lateral quantities change sign; pedals and speeds do not."""
+    """Mirror of the uncertified action block: steering and the path change sign; pedals and speeds do not."""
     m = dict(a)
     m["steer"] = _neg(a["steer"])
     if a.get("path") is not None:
         m["path"] = _mpts(a["path"])
-    if a.get("debug"):
-        m["debug"] = {k: (_neg(v) if k in MIRROR_ODD_DEBUG else v) for k, v in a["debug"].items()}
     return m

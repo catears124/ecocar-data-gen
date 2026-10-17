@@ -343,6 +343,11 @@ def cmd_data_lean(a):
     return main_lean(a)
 
 
+def cmd_data_report(a):
+    from .datagen.report import main_report
+    return main_report(a)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="python -m autocross", description="EcoCAR autocross simulation harness")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -463,10 +468,17 @@ def main(argv=None):
     p.add_argument("--allow-missing-coverage", action="store_true", help="report uncovered cells as warnings")
     p.set_defaults(fn=cmd_data_validate)
 
-    p = sub.add_parser("data-lean", help="export a manifest or corpus to integers and check it with the Lean checker")
+    p = sub.add_parser("data-lean", help="check a manifest or corpus with the Lean checker (+ per-sample kernel witnesses)")
     p.add_argument("target", help="manifest JSON or corpus folder")
     p.add_argument("--out", help="interchange folder for a manifest (default: <manifest>.lean/)")
+    p.add_argument("--no-witness", action="store_true",
+                   help="skip the per-sample kernel witnesses (NOT a complete verification)")
+    p.add_argument("--jobs", type=int, help="parallel Lean processes for the kernel witnesses")
     p.set_defaults(fn=cmd_data_lean)
+
+    p = sub.add_parser("data-report", help="dataset report: failures by factor/bin/split with intervals, ESS, coverage")
+    p.add_argument("corpus")
+    p.set_defaults(fn=cmd_data_report)
 
     a = ap.parse_args(argv)
     return a.fn(a)
