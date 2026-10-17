@@ -1,8 +1,8 @@
-# Submission manifest
+# VeriDrive — submission manifest
 
 ## What is submitted
 
-1. **Certified contrastive imitation corpus and Lean proofs**: the corpus tooling and certified decision models are under `autocross/datagen/`, with released corpus data under `datasets/` when a corpus directory is attached. The Lean 4 models, theorem statements, and checker are under `lean/`.
+1. **Certified contrastive imitation corpus and Lean proofs**: VeriDrive's corpus tooling and certified decision models are under `autocross/datagen/`, with released corpus data under `datasets/` when a corpus directory is attached. The Lean 4 models, theorem statements, and checker are under `lean/`.
 2. **Controller**: `teams/certline.py`, a single-file `autocross.api.Controller` submission.
 
 The submission format documented by the harness is either one Python file or a folder containing `controller.py` and its data/modules, placed in `teams/`. This release uses the single-file form.

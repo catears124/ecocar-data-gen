@@ -3,9 +3,9 @@ requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "autocross-sim"
+name = "veridrive"
 version = "0.1.0"
-description = "A lightweight, CARLA-based simulation framework for testing autonomous path planning and control on autocross courses."
+description = "Machine-verified Bellman-optimal drive planning with certified imitation data and Lean proofs."
 readme = "README.md"
 license = {text = "No license specified"}
 authors = [{name = "catears124", email = "jparkerpatton@gmail.com"}]

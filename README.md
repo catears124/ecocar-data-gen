@@ -1,6 +1,8 @@
-# EcoCAR autocross: certified data generation and a submitted controller
+# VeriDrive — Machine-Verified Bellman-Optimal Drive Planning
 
-This repository is a hackathon submission with two deliverables, plus the harness they were built against.
+VeriDrive is a machine-verified drive-planning stack: certified decision laws with Lean 4 proofs, a certified contrastive imitation corpus, and the submitted autocross controller.
+
+VeriDrive is a hackathon submission with two deliverables, plus the mil-sim harness they were built against.
 
 **1. A controller** — `teams/certline.py`, the single-file submission for the autocross evaluation. It vendors two integer decision laws from the certified work below in their exact arithmetic (`cert-2` longitudinal, `steer-1` lateral) and adds a minimum-curvature racing line constrained to stay inside the *certified clearance interval*, obstacle memory, and delay / steering-bias / grip-compensation layers. NumPy only, no GPU, no file I/O, one `Controller` subclass, ~49 KB. It is tracked in this repository (`.gitignore` keeps other teams' folders private but ships ours), and the release `controller-submission` carries the same file as its only asset.
 

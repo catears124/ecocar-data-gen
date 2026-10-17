@@ -1,4 +1,4 @@
-# `teams/certline.py`: controller submission
+# VeriDrive controller: `teams/certline.py`
 
 ## Reviewer’s map
 
