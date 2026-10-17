@@ -2,3 +2,7 @@
 *.py text eol=lf
 *.yaml text eol=lf
 *.ps1 text eol=crlf
+
+# The submitted controller is a shipped artifact: never rewrite its line endings, so that the
+# tracked file, the release asset and the hash recorded in SUBMISSION.md stay identical.
+teams/certline.py -text
