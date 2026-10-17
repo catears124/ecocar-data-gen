@@ -29,6 +29,6 @@ split:
 # Overrides of config/sim.yaml for every data-generation run (recorded in the corpus index).
 generation:
   sim: {max_time_s: 90}
-  compute_budget: {mode: measure}   # lockstep: a slow step never makes the harness hold the previous command
+  compute_budget: {mode: enforce}   # event rule: 50 ms deadline, 1 core; an overrun holds the previous command
   output: {plot: false}
   carla: {render: false, spectator: none, draw_path: false}

@@ -211,8 +211,9 @@ class BrakeTurnObstacle(Family):
         Factor("turn_radius_m", "m", "centerline radius of the turn",
                bins=(Bin("tight", 9.0, 14.0), Bin("medium", 14.0, 22.0), Bin("open", 22.0, 35.0, True))),
         Factor("turn_direction", "-", "turn direction (left = positive curvature)", levels=("left", "right")),
-        Factor("preview_m", "m", "road-model preview range / sight distance (road_model.range_m)",
-               bins=(Bin("short", 15.0, 25.0), Bin("nominal", 25.0, 45.0), Bin("long", 45.0, 60.0, True))),
+        Factor("preview_m", "m", "road-model preview range / sight distance (road_model.range_m); event = 40 m, "
+               "shorter = the harness robustness sweep's reduced sight distance",
+               bins=(Bin("short", 15.0, 25.0), Bin("nominal", 25.0, 40.0, True))),
         Factor("approach_speed_mps", "m/s", "speed at the hand-over point (start of the decision window)",
                bins=(Bin("low", 8.0, 12.0), Bin("mid", 12.0, 16.0), Bin("high", 16.0, 20.0, True))),
         Factor("obstacle_side", "-", "obstacle against the inside or the outside boundary of the turn",

@@ -7,7 +7,7 @@ import subprocess
 from ..config import ROOT
 
 GENERATOR_NAME = "autocross.datagen"
-GENERATOR_VERSION = "1.0.1"
+GENERATOR_VERSION = "1.1.0"
 MANIFEST_SCHEMA = "autocross.datagen.manifest"
 INDEX_SCHEMA = "autocross.datagen.index"
 SAMPLE_SCHEMA = "autocross.datagen.sample"

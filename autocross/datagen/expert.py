@@ -36,7 +36,7 @@ from autocross.datagen import cert
 from autocross.datagen.spec import get_family
 
 EXPERT_NAME = "bto_expert"
-EXPERT_VERSION = "3.0.0"
+EXPERT_VERSION = "3.1.0"
 
 G = cert.G
 CORRIDOR_MARGIN = 0.30   # m, (uncertified) lateral planner keeps the car body this far inside the boundaries
@@ -55,6 +55,10 @@ PHASE_APPROACH, PHASE_EXPERT = 0, 1
 STATUS_OK, STATUS_APPROACH, STATUS_NO_GAP, STATUS_ROAD_INVALID, STATUS_OVER_BUDGET = 0, 1, 2, 3, 4
 STATUS_NAMES = {0: "ok", 1: "approach", 2: "no_feasible_gap", 3: "road_invalid", 4: "over_budget"}
 LD_BASE, LD_GAIN, LD_MIN, LD_MAX = 0.0, 0.45, 3.0, 14.0  # pure-pursuit look-ahead [m], [s]
+# Scripted approach: near the target speed an incremental PI on the applied throttle (obs.throttle,
+# damped by obs.ax) removes the steady-state offset a P law leaves against drag (CARLA).
+APPROACH_PI_BAND = (-0.5, 3.0)   # m/s of speed error where the PI law is used
+APPROACH_KI, APPROACH_KD = 0.05, 0.03   # throttle per (m/s) and per (m/s^2), per control step
 PARAMS = {k: v for k, v in dict(globals()).items() if k.isupper() and isinstance(v, (int, float))
           and not k.startswith(("PHASE_", "STATUS_"))}
 
@@ -88,8 +92,13 @@ def _approach(obs: Observation, vp: VehicleParams, target_speed: float) -> Comma
     road = obs.road
     v = max(obs.speed, 0.0)
     steer, ld = _pursuit(np.asarray(road.preview_centerline, float), np.asarray(road.preview_s, float), v, vp)
-    a_des = float(np.clip(1.5 * (target_speed - v), -4.0, vp.max_accel))
-    throttle, brake = _pedals(a_des, vp, obs.ay)
+    err = target_speed - v
+    a_des = float(np.clip(1.5 * err, -4.0, vp.max_accel))
+    if APPROACH_PI_BAND[0] <= err <= APPROACH_PI_BAND[1] and obs.brake <= 0.0:
+        throttle = float(np.clip(obs.throttle + APPROACH_KI * err - APPROACH_KD * obs.ax, 0.0, 1.0))
+        brake = 0.0
+    else:
+        throttle, brake = _pedals(a_des, vp, obs.ay)
     return Command(steer=steer, throttle=throttle, brake=brake, path=road.preview_centerline, path_frame="vehicle",
                    target_speed=target_speed,
                    debug={"phase": PHASE_APPROACH, "status": STATUS_APPROACH, "a_des": a_des, "side": 0.0,
