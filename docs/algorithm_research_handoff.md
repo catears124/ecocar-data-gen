@@ -133,18 +133,9 @@ against the Lean model). The expert's gap-side tie-break at exactly equal gaps i
 
 ## 3. What is proven, exactly
 
-See the README **Formal Guarantee**. In short:
-- The recorded **longitudinal acceleration** of every clean sample is the greatest integer
-  acceleration that keeps a feasible speed plan (point mass, friction box μg/√2, vehicle limits)
-  over the visible preview. That plan also stays safe on every unseen road in the declared
-  domain.
-- No planner with the same information (the preview plus the domain) can be faster at any
-  preview station without being unsafe on some in-domain road.
-- The Lean kernel proves `Cert.decide c q = recorded` for every one of the 29,142 clean samples.
+The longitudinal `cert-2` decision and the lateral `steer-1` decision are model-derived integer functions. The lateral label is the output of Lean-defined `Corpus.Steer.decide`, recomputed per sample by the validator and compiled checker, with per-sample kernel witnesses. This establishes recomputation/certificate integrity, not a full lateral guarantee: ramp slope and second-difference bounds, `|offset| ≤ Cert.stationY`, `curv ≤ Cert.kbarOf`, mirror properties of `sideAmp`/`offs`, and any steering-angle bound beyond the clip remain unproved. Pure-pursuit tracking and pedal mapping are trusted/replay-checked. The joint longitudinal×lateral certificate is still the open gap; the v2 joint path-and-speed dynamic program below is the proposed fix.
 
-**Not proven:** steering/path/pedal optimality, CARLA or bicycle dynamics, real-sensor
-visibility, anything about a learned policy. Certified labels can still end in cone hits: the
-model is a point mass, and the steering is uncertified.
+The recorded longitudinal acceleration is the greatest integer acceleration supported by the certified speed-plan model. The lateral block is the model's integer offset/curvature/steering construction, but neither certificate is a claim about CARLA or bicycle dynamics, real-sensor visibility, or a learned policy.
 
 ## 4. What this means for the algorithm choice
 

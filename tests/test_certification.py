@@ -9,6 +9,7 @@ import math
 import random
 import shutil
 import subprocess
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -110,6 +111,7 @@ VP = VehicleParams(mass=1845.0, wheelbase=3.0, track_width=1.67, length=4.79, wi
                    cg_to_rear=1.55, max_steer=0.61, max_steer_rate=2.0, mu=0.95, max_accel=5.2, max_decel=9.0,
                    max_speed=40.0, control_dt=0.05, actuation_delay_steps=0)
 CONSTS = expert_mod.model_constants(VP)
+CERT_CONSTANTS = CONSTS["lon"]
 
 
 def _q(v0=10000, n=31, step=1000, k=0, w=3000, obstacles=()):
@@ -118,21 +120,21 @@ def _q(v0=10000, n=31, step=1000, k=0, w=3000, obstacles=()):
 
 
 EDGE_CASES = {
-    "zero_speed": (CONSTS, _q(v0=0)),
-    "negative_speed": (CONSTS, _q(v0=-1)),
-    "two_stations": (CONSTS, _q(v0=1000, n=2)),
-    "smallest_spacing_1mm": (CONSTS, _q(v0=1000, n=5, step=1)),
-    "extreme_curvature": (CONSTS, _q(k=1_000_000)),
-    "over_budget": (CONSTS, _q(v0=25000)),
-    "impossible_gap": (CONSTS, _q(obstacles=[(15000, -2900, 2900)])),
-    "obstacle_beyond_preview": (CONSTS, _q(obstacles=[(90000, 1000, 2000)])),
-    "non_increasing_stations": (CONSTS, {**_q(n=3), "s": [0, 1000, 1000]}),
-    "nonzero_first_station": (CONSTS, {**_q(n=3), "s": [5, 1000, 2000]}),
-    "misaligned_vectors": (CONSTS, {**_q(n=3), "k": [0, 0]}),
-    "bad_obstacle_tuple": (CONSTS, _q(n=3, obstacles=[(1000, 2)])),
-    "negative_brake_budget": ({**CONSTS, "a_brk": -1}, _q()),
-    "negative_cap": ({**CONSTS, "a_lat": -1}, _q()),
-    "braking_with_rounding": (CONSTS, _q(v0=20291, n=31)),  # floor(-6380.x) near the braking budget
+    "zero_speed": (CERT_CONSTANTS, _q(v0=0)),
+    "negative_speed": (CERT_CONSTANTS, _q(v0=-1)),
+    "two_stations": (CERT_CONSTANTS, _q(v0=1000, n=2)),
+    "smallest_spacing_1mm": (CERT_CONSTANTS, _q(v0=1000, n=5, step=1)),
+    "extreme_curvature": (CERT_CONSTANTS, _q(k=1_000_000)),
+    "over_budget": (CERT_CONSTANTS, _q(v0=25000)),
+    "impossible_gap": (CERT_CONSTANTS, _q(obstacles=[(15000, -2900, 2900)])),
+    "obstacle_beyond_preview": (CERT_CONSTANTS, _q(obstacles=[(90000, 1000, 2000)])),
+    "non_increasing_stations": (CERT_CONSTANTS, {**_q(n=3), "s": [0, 1000, 1000]}),
+    "nonzero_first_station": (CERT_CONSTANTS, {**_q(n=3), "s": [5, 1000, 2000]}),
+    "misaligned_vectors": (CERT_CONSTANTS, {**_q(n=3), "k": [0, 0]}),
+    "bad_obstacle_tuple": (CERT_CONSTANTS, _q(n=3, obstacles=[(1000, 2)])),
+    "negative_brake_budget": ({**CERT_CONSTANTS, "a_brk": -1}, _q()),
+    "negative_cap": ({**CERT_CONSTANTS, "a_lat": -1}, _q()),
+    "braking_with_rounding": (CERT_CONSTANTS, _q(v0=20291, n=31)),  # floor(-6380.x) near the braking budget
 }
 
 
@@ -327,6 +329,74 @@ CORRUPTIONS = {
 }
 
 
+def _lat(s):
+    return s["target"]["lateral"]
+
+
+# These mutations deliberately stay on the Python validator path: the final release gate runs the
+# Lean checker over the same corrupted records, while these tests pin the validator's own
+# steer-1-specific diagnostics without requiring a second lake build.
+LATERAL_CORRUPTIONS = {
+    "lateral_offset_changed": (
+        lambda s: _lat(s)["offset_mm"].__setitem__(0, _lat(s)["offset_mm"][0] + 1),
+        clean,
+        "lateral certificate differs from steer-1 decision",
+    ),
+    "lateral_certificate_deleted": (
+        lambda s: s["target"].update(lateral=None),
+        clean,
+        "lateral certificate presence inconsistent with phase",
+    ),
+    "lateral_no_gap_marked_certified": (
+        lambda s: _lat(s).update(kind="no_feasible_gap", certified=True),
+        clean,
+        "lateral certified flag inconsistent with kind",
+    ),
+    "clean_lateral_not_plan_ok": (
+        lambda s: _lat(s).update(kind="no_feasible_gap", certified=False),
+        clean,
+        "clean sample without both certified labels in a clean run's decision window",
+    ),
+    "lateral_kind_changed": (
+        lambda s: _lat(s).update(kind="invalid_input"),
+        clean,
+        "lateral certificate differs from steer-1 decision",
+    ),
+}
+
+
+@pytest.fixture(scope="module")
+def lateral_corpus(request):
+    """Use the release-gate corpus when present; generate the normal fixture only as fallback."""
+    existing = Path(__file__).resolve().parents[2] / "work" / "final" / "smoke"
+    if (existing / "index.json").is_file():
+        return existing
+    return request.getfixturevalue("corpus")
+
+
+
+
+@pytest.mark.parametrize("name", sorted(LATERAL_CORRUPTIONS))
+def test_lateral_corruption_is_rejected(name, lateral_corpus, tmp_path):
+    fn, pick, expected = LATERAL_CORRUPTIONS[name]
+    root = _copy(lateral_corpus, tmp_path)
+    _rewrite(root, fn, pick)
+    errors = validate_corpus(root, allow_missing_coverage=True).errors
+    assert any(expected in error for error in errors), (name, expected, errors[:8])
+
+
+def test_lateral_constants_corruption_is_rejected(lateral_corpus, tmp_path):
+    root = _copy(lateral_corpus, tmp_path)
+    index_path = root / "index.json"
+    index = json.loads(index_path.read_text())
+    index["scenarios"][0]["lateral_cert_constants"]["kappa_max"] += 1
+    index_path.write_text(json.dumps(index, indent=1))
+    errors = validate_corpus(root, allow_missing_coverage=True).errors
+    expected = "lateral certificate model/constants differ from model_constants(vehicle)"
+    assert any(expected in error for error in errors), (expected, errors[:8])
+
+
+
 @pytest.mark.parametrize("name", sorted(CORRUPTIONS))
 def test_corruption_is_rejected(name, corpus, tmp_path, interchange):
     fn, pick, py_expect, lean_expect = CORRUPTIONS[name]
@@ -438,7 +508,8 @@ def test_privileged_fields_do_not_affect_the_label(corpus):
         priv.update(x=priv["x"] + 123.0, y=-7.0, yaw=1.0, progress=priv["progress"] + 500.0, lap=3, t=999.0, cones=None)
         priv["road"].update(corners=[], finish_distance=1.0)
         full = obs_from_dict(merge_observation(s["policy_observation"], priv))
-        t, e = label_blocks(command_to_dict(expert_mod.expert_action(full, vp, None)), approach=False)
+        t, e = label_blocks(command_to_dict(expert_mod.expert_action(full, vp, None)), approach=False,
+                            policy=s["policy_observation"], vp=vp)
         assert tree_diff(t, s["target"]) == 0.0 and tree_diff(e, s["expert"]) == 0.0
         assert replay_diff(s, vp, None) == 0.0
 
@@ -572,7 +643,10 @@ def test_loader_returns_only_policy_input_and_marks_certified_target(corpus):
     for pol, tgt, st, meta in ex:
         assert set(pol) == {"schema", "road", *POLICY_EGO}
         assert st["certified"] and st["model"] == cert.CERT_MODEL and "longitudinal" in st["scope"]
-        assert set(tgt) == {"schema", "longitudinal", "uncertified"} and meta["clean"]
+        assert set(tgt) == {"schema", "longitudinal", "lateral", "uncertified"} and meta["clean"]
+        assert set(tgt["lateral"]) == {"model", "kind", "certified", "side", "amp", "offset_mm",
+                                       "curvature_micro", "steer_milli"}
+        assert tgt["lateral"]["certified"] is True and tgt["lateral"]["kind"] == "plan_ok"
     arr = to_arrays(ex)
     assert arr["x"].shape[0] == len(ex) and np.isfinite(arr["x"]).all() and arr["certified"].all()
     with pytest.raises(DatagenError):

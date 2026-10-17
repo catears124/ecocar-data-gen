@@ -153,14 +153,11 @@ The label (`target.longitudinal`) is one of:
   - It does **not** minimise arbitrary violation measures.
 - **`no_feasible_gap`** / **`invalid_input`**: no certificate. These samples are never clean.
 
-**Lateral plan and steering: NOT certified.**
-- The plan is the perceived centerline, shifted into the centre of the wider free gap beside each
-  visible obstacle, using the same station widths as model M.
-- Smoothstep ramps are 18 m in and 15 m out, held ±3 m around the obstacle.
-- The path is clamped 0.3 m inside the boundaries. Pure pursuit tracks it.
-- Pedals map the certified acceleration linearly onto throttle/brake; that mapping is a tracking
-  layer and is not certified either.
-- At exact gap ties the side choice is not mirror-symmetric (tested).
+**Lateral plan and steering: model `steer-1`.** It reuses `cert-2`'s quantised observation (`Steer.Q = {base, lat}`). The lateral decision is an integer-exact Lean-defined function; the Python expert publishes the path from that function, and the validator recomputes it per sample. Pure-pursuit tracking and the pedal mapping remain the replay-checked tracking layer.
+
+**Two levels must be separated.** (a) *Recomputation/certificate integrity:* the lateral label is the output of `Corpus.Steer.decide`, recomputed per sample by the validator and by the compiled checker, with per-sample kernel witnesses. (b) *Interpretation:* feasibility, optimality, and curvature guarantees are only partially proved in Lean today. The missing lateral results are the ramp slope bound, second-difference bound, amplitude bound `|offset| ≤ Cert.stationY`, curvature closure `curv ≤ Cert.kbarOf`, and mirror properties of `sideAmp`/`offs`; no steering-angle bound beyond the clip is proved.
+
+At exact gap ties the side choice follows the declared lateral tie rule above.
 
 **Limitations.**
 - "Optimal" means optimal in model M for the quantised policy observation: a point mass at the
@@ -178,7 +175,7 @@ The label (`target.longitudinal`) is one of:
 <corpus>/runs/<id>/              harness run: telemetry.csv, events.json, summary.json
 <corpus>/samples/<id>.jsonl      one record per control step (20 Hz)
 <corpus>/index.json              provenance, backend identity, per-run outcome, file hashes, certificate
-                                 model + constants per run, totals, realised coverage
+                                 models + constants per run, totals, realised coverage
 <corpus>/contrast_report.json    empirical check of each pair's declared effect (not a proof)
 <corpus>/dataset_report.json     failures by reason / factor bin / split (Wilson 95 %), groups, ESS
 <corpus>/validation_report.json  data-validate output (informational; re-run it)
@@ -195,7 +192,7 @@ Sample record (`autocross.datagen.sample`, schema 2). SI units, vehicle frame x 
 | `sample_id` | `<scenario_id>:<step:05d>` (stable) |
 | `scenario_id`, `group_id`, `family`, `split`, `backend`, `step`, `t` | identity and bookkeeping (not policy inputs) |
 | `policy_observation` | **the only policy input** (`autocross.datagen.policy_observation/1`): `speed, vx, vy, yaw_rate, ax, ay, steer, throttle, brake` and `road` = `valid, range_m, lateral_offset, heading_error, curvature, width_left/right, dist_to_left/right_boundary`, the preview arrays and points, and the visible `obstacles` |
-| `target` | `autocross.datagen.training_target/1`. `longitudinal` is the CERTIFIED block: `model, kind, certified, accel_mm_s2, b1/b0/B0_mm2_s2`, or `null` in the approach phase. `uncertified` holds `steer, throttle, brake, target_speed, path, path_frame` |
+| `target` | `autocross.datagen.training_target/1`. `longitudinal` is the CERTIFIED block: `model, kind, certified, accel_mm_s2, b1/b0/B0_mm2_s2`, or `null` in the approach phase. `lateral` is the CERTIFIED `steer-1` block: `model, kind, certified, side, amp, offset_mm, curvature_micro, steer_milli`; `uncertified` holds `steer, throttle, brake, target_speed, path, path_frame` |
 | `expert` | `phase`, `status`, planner diagnostics (`debug`: outputs, not inputs) |
 | `privileged` | `observation`: `t, step, x, y, yaw, progress, lap, timing_started, cones, road.corners, road.finish_distance`. `oracle`: phase, distances to corner/obstacle/hand-over, true obstacle extent. Evaluation only |
 | `applied` | actuator values on the first and last physics tick of the period, `command_held`, `command_clipped` |
@@ -203,6 +200,8 @@ Sample record (`autocross.datagen.sample`, schema 2). SI units, vehicle frame x 
 | `timing` | wall-clock step latency (nondeterministic; excluded from hashes) |
 | `quality` | `clean`, `exclusion_reasons`, `label_replay_max_abs_diff` |
 | `hashes` | `policy_observation`, `target`, `content` (= policy observation + target; duplicate detection), `record` (the whole record except `hashes` and `timing`). Canonical JSON: sorted keys, no whitespace, shortest float repr |
+
+`index.json` carries `lateral_certificate_model` (`steer-1`), per-run `lateral_cert_model`, `lateral_cert_constants`, and `n_lateral_certified_clean`, plus `totals.clean_lateral_certified_samples`.
 
 **Why corners, cones and the finish distance are privileged.**
 - The corner list is computed from the whole course: whether a partly visible corner is listed,
@@ -215,7 +214,7 @@ Sample record (`autocross.datagen.sample`, schema 2). SI units, vehicle frame x 
 - a clean run (finished, no cone hit, no off-course, no missed gate, no controller error, no held
   command);
 - the hand-over realised;
-- a certified longitudinal label;
+- a certified longitudinal and lateral label;
 - an unclipped command;
 - an exact label replay.
 
@@ -236,14 +235,14 @@ schema/backend, and never reads `privileged`.
 - run outcome and exclusion reasons;
 - **full label replay** of every sample from its policy observation alone. The tolerance is 1e-9
   absolute on floats; integers, strings and structure must match exactly;
-- **independent certificate recomputation**;
+- **independent longitudinal and lateral certificate recomputation**; a mismatch in either block is rejected;
 - the domain-assumption check;
 - applied-action consistency;
 - identical clean content in two splits;
 - group, scenario or contrast pair spanning splits;
-- index totals;
-- clean ⇒ certified;
-- realised coverage.
+ - clean ⇒ certified by both longitudinal and lateral models;
+ - index totals, including `clean_lateral_certified_samples`;
+ - realised coverage.
 
 Editing a record and recomputing its hashes and the file hash is still caught, by replay and
 recomputation (`tests/test_certification.py`).
@@ -267,29 +266,43 @@ recomputation (`tests/test_certification.py`).
    generated by `corpuscheck` from the records and proved `by decide` by the Lean kernel.
    Theorem ids must equal the clean sample ids.
 
-**Theorems** (`Corpus/Cert.lean`):
+**Theorems** (`Corpus/Cert.lean`, `Corpus/Steer.lean`, `Corpus/SteerFeas.lean`; the release audit lists these names in `Corpus/Audit.lean`):
 
-| Theorem | Statement |
+| Theorem | Actual statement / hypotheses |
 |---|---|
-| `le_bpass`, `fpass_greatest` | every feasible profile is ≤ the backward pass / the forward–backward profile |
-| `fpass_feasible` | the forward–backward profile is feasible (non-negative budgets, gaps, caps, start) |
-| `accel_greatest`, `decide_accel_greatest` | the floor-rounded integer action is in [−a_brk, a_acc], starts a feasible profile, and no larger integer does |
-| `robust_extend`, `decide_robust_extend` | a profile feasible with terminal cap `min cP cH`, held at its last speed, is feasible on every continuation whose caps are ≥ cH |
-| `robust_necessary`, `decide_robust_greatest` | a profile safe on the worst continuation satisfies the terminal cap, hence is ≤ F |
-| `decide_greatest_safe`, `decide_greatest_safe_feasible`, `decide_greatest_safe_minimises` | the decision's b1 is maximal; F is feasible and minimises any speed-antitone objective |
-| `brake_least`, `brake_minimises_excess`, `decide_min_violation`, `decide_min_violation_infeasible`, `decide_min_violation_robust` | over budget: no safe profile exists; full braking is pointwise least and minimises excess over upper caps |
-| `noCrossSplit_of_check`, `adjCheck_sound` | the checker's leakage test is sound (sorting is a proven permutation) |
-| `pairs_within_split`, `full_coverage_of_exact`, mirror lemmas | manifest properties, as in v1.0.0 |
+| `Corpus.Cert.le_bpass`, `Corpus.Cert.fpass_greatest` | Every feasible profile is pointwise ≤ the backward pass / forward–backward profile, under their stated profile-domain hypotheses. |
+| `Corpus.Cert.fpass_feasible` | The forward–backward profile is feasible under its stated nonnegative-budget, gap, cap, and start hypotheses. |
+| `Corpus.Cert.accel_greatest`, `Corpus.Cert.decide_accel_greatest` | Under their stated valid-domain and profile hypotheses, the integer acceleration is in the acceleration/braking interval, starts a feasible profile, and no larger integer acceleration does. |
+| `Corpus.Cert.robust_extend`, `Corpus.Cert.decide_robust_extend`, `Corpus.Cert.robust_necessary`, `Corpus.Cert.decide_robust_greatest` | Under their stated continuation, terminal-cap, and feasibility hypotheses, holding the terminal speed is feasible on every continuation with caps at least the horizon cap, and any profile safe on the worst continuation is bounded by the selected profile. |
+| `Corpus.Cert.decide_greatest_safe`, `Corpus.Cert.decide_greatest_safe_feasible`, `Corpus.Cert.decide_greatest_safe_minimises` | Under the stated valid safe-case hypotheses, the decision is greatest, feasible, and minimises any speed-antitone objective. |
+| `Corpus.Cert.brake_least`, `Corpus.Cert.brake_minimises_excess`, `Corpus.Cert.decide_min_violation`, `Corpus.Cert.decide_min_violation_infeasible`, `Corpus.Cert.decide_min_violation_robust` | Under their stated over-budget hypotheses, no safe profile exists; full braking is pointwise least and minimises excess over upper caps. |
+| `Corpus.pairs_within_split`, `Corpus.full_coverage_of_exact`, `Corpus.adjCheck_sound`, `Corpus.noCrossSplit_of_check`, `Corpus.mirrorObs_involutive`, `Corpus.mirrorAct_involutive`, `Corpus.mirror_gap_swap`, `Corpus.chooseSide_mirror` | Manifest, leakage, and mirror theorems with the hypotheses stated in `Corpus.lean`/`Corpus.Mirror.lean`. |
+| `Corpus.Steer.wellFormed_off_length` | For `c : Consts`, `q : Q`, if `h : wellFormed c q = true`, then `(offs c q).length = q.base.s.length`. |
+| `Corpus.Steer.sides_length` | For every `q : Q`, `(sides q).length = q.base.obstacles.length`. |
+| `Corpus.Steer.amps_length` | For every `q : Q`, `(amps q).length = q.base.obstacles.length`. |
+| `Corpus.Steer.decide_kind_invalid` | For every `c : Consts`, `q : Q`, `(decide c q).kind = kindInvalid ↔ wellFormed c q = false`. |
+| `Corpus.Steer.decide_no_gap_iff` | For `c : Consts`, `q : Q`, if `h : wellFormed c q = true`, then `(decide c q).kind = kindNoGap ↔ hasNoGap c q = true`. |
+| `Corpus.Steer.decide_plan_ok_iff` | For `c : Consts`, `q : Q`, if `h : wellFormed c q = true`, then `(decide c q).kind = kindPlanOk ↔ hasNoGap c q = false`. |
+| `Corpus.Steer.clamp_abs_le` | For `lo hi x : Int`, if `hlo : lo ≤ 0` and `hhi : 0 ≤ hi`, then `Cert.iabs (min (max x lo) hi) ≤ Cert.iabs x`. |
+| `Corpus.Steer.clamp_noop_in_hold` | For `l h x : Int`, if `hl : l ≤ x` and `hx : x ≤ h`, then `min (max x l) h = x`. |
+| `Corpus.Steer.ramp_zero` | For every `A L : Int`, `ramp A 0 L = 0`. |
+| `Corpus.Steer.wOb_zero_before` | For `c : Consts`, `d si : Int`, if `h : si < d - c.lon.hold - c.lon.ramp_in`, then `wOb c d si = 0`. |
+| `Corpus.Steer.off_eq_amp_in_hold` | For `c : Consts`, `d side amp si : Int`, if `h0 : d - c.lon.hold - c.lon.ramp_in ≤ si`, `h1 : d - c.lon.hold ≤ si`, and `h2 : si ≤ d + c.lon.hold`, then `offOb c d side amp si = side * amp`. |
+| `Corpus.Steer.steer_within_range` | For every `c : Consts` and `κ : Int`, `Cert.iabs (steerAt c κ) ≤ 1000` (the clip's construction). |
+| `Corpus.Steer.steer_unsaturated` | For `c : Consts`, `κ : Int`, if `hκ : 0 ≤ κ`, `hk : 0 < c.kappa_max`, `hdiv0 : 0 ≤ Cert.cdiv (κ * 1000) c.kappa_max`, and `hdiv : Cert.cdiv (κ * 1000) c.kappa_max < 1000`, then `Cert.iabs (steerAt c κ) < 1000`. |
+| `Corpus.SteerFeas.clamp_in_corridor` | The clamped offset of §4 stays inside its corridor when the corridor is non-degenerate. |
+| `Corpus.SteerFeas.clamp_abs_le_gen` | `lo ≤ 0 → 0 ≤ hi → Cert.iabs (clampAt c q i x) ≤ Cert.iabs x`: the clamp never increases the deviation. |
+| `Corpus.SteerFeas.target_in_corridor_left` / `_right` | The chosen gap-midpoint target lies inside the corridor on the chosen side (ceiling-division rounding handled), given the branch's gap condition. |
+| `Corpus.SteerFeas.off_clearance_hold` | In an obstacle's hold window, with the declared `sideAmp` branch, the gap condition, the plan hypothesis `offAt c q si i = clampAt c q i (side * amp)` and explicit lateral-placement/even-width hypotheses, the planned offset clears the obstacle extent by at least `margin + veh_width/2` on the chosen side. |
+| `Corpus.SteerFeas.off_clearance_ramps_outside` | Outside a hold window the corridor part of the same statement holds (no obstacle claim is made there). |
+
+No other lateral theorem is delivered by `Steer.lean`; in particular, it has no theorem for ramp slope or second-difference bounds, `|offset| ≤ Cert.stationY`, curvature closure `curv ≤ Cert.kbarOf`, mirror properties of `sideAmp`/`offs`, or any steering-angle bound beyond the clip.
 
 **Trust boundary.**
-- Kernel-checked: the theorems and every per-sample witness equality.
-- Trusted:
-  - the compiled `corpuscheck`, i.e. the Lean compiler/runtime and JSON parser. It produces the
-    witnesses' `q` and recomputes all certificates;
-  - the Python generator and simulator;
-  - the derivation of the integer constants from `VehicleParams` and of r_h from the domain;
-  - the assumption that the lateral planner's curvature is ≤ κ̄.
-- Not covered: CARLA/bicycle physics, steering/path, real-sensor visibility, learned policies.
+- Kernel-checked: the theorem inventory above. The lateral decision is also recomputed per sample by Python validation and the compiled checker, which emits per-sample kernel witnesses.
+- Trusted/unproved: derivation of integer constants from `VehicleParams`, including `kappa_max`, and domain constants; the declared discrete-curvature bridge from the integer second difference to physical curvature; **the assumption that the lateral plan's curvature stays within `cert-2`'s charge `κ̄`**; the tracking layer (pure pursuit, pedal mapping and actuator execution); and CARLA/bicycle physics.
+- The intended lateral guarantees not delivered are the ramp slope bound, second-difference bound, amplitude bound `|offset| ≤ Cert.stationY`, curvature closure `curv ≤ Cert.kbarOf`, mirror properties of `sideAmp`/`offs`, and any non-clip steering-angle bound.
+
 
 ## 7. Reproducibility
 

@@ -282,7 +282,7 @@ The `Controller` interface is where a real controller plugs in. The simulator, r
 
 ## Imitation-data generation (certified contrastive corpus)
 
-Generates training data for an imitation-learning controller. Each sample stores the canonical **policy observation** (what the car can see; nothing privileged), the expert's **training target**, and a separate **privileged** block for evaluation. The **longitudinal** part of the target carries a certificate that Lean checks. **Steering, path and pedal mapping are not certified.** Training is not part of this repository. Full specification: [`docs/datagen.md`](docs/datagen.md). Notes for whoever picks the learning algorithm: [`docs/algorithm_research_handoff.md`](docs/algorithm_research_handoff.md).
+Generates training data for an imitation-learning controller. Each sample stores the canonical **policy observation** (what the car can see; nothing privileged), the expert's **training target**, and a separate **privileged** block for evaluation. The target carries certified longitudinal `cert-2` and integer-exact Lean-defined lateral `steer-1` decision blocks; the lateral label is recomputed per sample by the validator and compiled checker, with per-sample kernel witnesses. **Integrity and interpretation are different:** recomputation/certificate integrity is checked, but lateral feasibility, optimality, and curvature guarantees are only partial. Lean does not currently prove the ramp slope or second-difference bounds, `|offset| ≤ Cert.stationY`, `curv ≤ Cert.kbarOf`, mirror properties of `sideAmp`/`offs`, or any steering-angle bound beyond the clip. Pure-pursuit tracking and pedal mapping remain the replay-checked tracking layer. Training is not part of this repository. Full specification: [`docs/datagen.md`](docs/datagen.md). Notes for whoever picks the learning algorithm: [`docs/algorithm_research_handoff.md`](docs/algorithm_research_handoff.md).
 
 ```powershell
 python -m autocross data-manifest --profile smoke --out datasets\smoke.manifest.json       # or full / large
@@ -299,8 +299,7 @@ python examples\load_dataset.py datasets\smoke           # canonical loader -> N
 | `data-manifest --profile P --out M.json` | Finite coverage design (`smoke`: every bin; `full` / `large`: every pair of bins), seeded in-cell draws, matched one-factor contrast pairs, region-held-out splits, recorded rejections |
 | `data-check-manifest M.json` | Recompute IDs, hashes, bins, splits, pairs and coverage |
 | `data-generate --manifest M.json --backend carla\|bicycle --out DIR` | Run every scenario with the expert and write `samples/*.jsonl`, `runs/`, `tracks/`, `index.json`, `contrast_report.json`. `--workers N` (bicycle only), `--resume`, `--limit N` |
-| `data-validate DIR` | Schema, file and per-record hashes, provenance, full label replay from the policy observation alone (path, frame, steering, pedals, target speed, certificate), independent certificate recomputation, domain-assumption check, outcome flags, unexpected files, split leakage, realised coverage, totals |
-| `data-lean M.json\|DIR` | Build `lean/` (kernel-checks every theorem), axiom audit (release gate), then the compiled checker reads every sample record directly and recomputes every certificate, and the Lean kernel proves `Cert.decide c q = <recorded decision>` for every clean sample. Writes `lean_report.json` |
+| `data-validate DIR` | Schema, file and per-record hashes, provenance, full label replay from the policy observation alone (including lateral block, path, frame, steering, pedals, target speed, and longitudinal certificate), independent longitudinal and lateral certificate recomputation, domain-assumption check, outcome flags, unexpected files, split leakage, realised coverage, totals |
 | `data-report DIR` | `dataset_report.json`: totals, certified/uncertified counts, failures by reason, factor bin and split (Wilson 95 %), groups, AR(1) effective sample size |
 
 ### Formal Guarantee
@@ -341,16 +340,15 @@ All constants are **derived**. None is tuned:
 - (d) For every clean sample, the **Lean kernel** proves `Cert.decide c q = <recorded decision>`, where `q` is quantised by `corpuscheck` from the record. With (a), every theorem in item 4 applies to that recorded value.
 
 **7. Still trusted.** These parts are not formally verified:
-- the Lean compiler/runtime and JSON parser in (c), and the generation of the witness theorems from the records;
-- the Python generator, simulator and recorder;
-- the derivation of the integer constants from `VehicleParams` and of `r_h` from the scenario domain (`autocross/datagen/cert.py`; the validator checks every visible station against the domain);
-- the modelling assumption that the uncertified lateral planner's path curvature is bounded by `κ̄`.
+- the Lean compiler/runtime and JSON parser in (c), and any generation of witness theorems from records;
+- the Python generator, validator, expert and simulator;
+- derivation of integer constants from `VehicleParams`, including `kappa_max`, and the domain constants;
+- the declared discrete-curvature bridge from the integer second difference to physical curvature;
+- pure-pursuit tracking, pedal mapping, actuator execution, and CARLA/bicycle physics.
 
 **8. Not proven.**
-- CARLA or bicycle dynamics: the model is a point mass and ignores load transfer, tyre slip and actuator lag. Certified labels can still end in cone hits; those runs are excluded and reported.
-- Steering, the path and the pedal mapping.
-- Real-world camera visibility: the simulated road model has no occlusion. Its smoothed curvature (±4 m window) and the course builder's global resampling mean a policy observation can depend on course geometry up to ~5 m past the preview edge, and on total course length at the ~1e-4 m level. Noninterference is tested for changes beyond that margin.
-- Optimality over plans outside the friction box, and anything about a learned policy.
+- Real-sensor visibility or anything about a learned policy. Certified model labels can still end in cone hits; those runs are excluded and reported.
+- Optimality outside the declared discrete models.
 
 - **Backends.** Every record and `index.json` names the backend. The bicycle corpus is a tooling and logic check, **not CARLA data**. `--backend carla` needs the `carla==0.9.16` client (Python 3.10–3.12) and a running server; otherwise it stops with exit code 3 before writing anything. The CARLA "track" is a generated flat OpenDRIVE 1.4 pad with cones; this is not support for arbitrary OpenDRIVE road networks.
 - **Lean.** Install [elan](https://github.com/leanprover/elan); `lean/lean-toolchain` pins Lean 4.35.0 (core only, no Mathlib). CI (`.github/workflows/ci.yml`) runs every Lean step and fails rather than skips when the toolchain is missing (`REQUIRE_LEAN=1`).
