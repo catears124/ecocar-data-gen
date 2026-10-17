@@ -1,0 +1,7 @@
+numpy>=1.24
+PyYAML>=6.0
+psutil>=5.9
+matplotlib>=3.7
+pygame>=2.5
+# The CARLA client must match the server version exactly. Installed separately by the setup
+# scripts (from PyPI, or from $CARLA_ROOT/PythonAPI/carla/dist if PyPI has no wheel for you).

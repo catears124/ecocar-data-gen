@@ -1,0 +1,32 @@
+# Hackathon test course: the public course for developing and testing controllers.
+# The scored evaluation course is a different, unreleased layout, so do not tune to this one.
+name: hackathon_test
+closed: false
+width: 5.5
+cone_spacing: 5.0
+start_offset: 8.0
+finish_runoff: 40.0
+origin: [0.0, 0.0, 0.0]
+segments:
+- {type: straight, length: 30.0}
+- {type: slalom, cycles: 3, wavelength: 28.5, swing: 2.3, first: left}
+- {type: straight, length: 32.3}
+- {type: straight, length: 42.0}
+- {type: slalom, cycles: 1, wavelength: 32.5, swing: 2.6, first: left}
+- {type: arc, radius: 20.2, angle: -84.5}
+- {type: arc, radius: 20.1, angle: 89.9}
+- {type: arc, radius: 40.5, angle: -98.5}
+- {type: arc, radius: 21.9, angle: -61.8}
+- {type: arc, radius: 21.7, angle: 67.0}
+- {type: arc, radius: 39.4, angle: -68.7}
+- {type: arc, radius: 12.5, angle: 104.4}
+- {type: arc, radius: 44.2, angle: -76.2}
+- {type: arc, radius: 19.3, angle: -88.7}
+- {type: straight, length: 36.6}
+- {type: arc, radius: 10.4, angle: 182.5, width: 6.5}
+- {type: slalom, cycles: 1, wavelength: 29.0, swing: 2.8, first: left}
+- {type: straight, length: 55.0}
+obstacles:
+- {s: 159.0, offset: 1.63, width: 1.65}
+- {s: 368.2, offset: 1.85, width: 1.2}
+- {s: 438.8, offset: -1.68, width: 1.54}

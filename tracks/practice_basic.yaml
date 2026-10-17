@@ -1,0 +1,21 @@
+# Practice course: open (point-to-point) autocross layout. Coordinates in metres, angles in degrees (+ = left).
+name: practice_basic
+closed: false
+width: 5.5
+cone_spacing: 5.0
+start_offset: 8.0
+finish_runoff: 45.0
+origin: [0.0, 0.0, 0.0]
+segments:
+  - {type: straight, length: 35}
+  - {type: arc, radius: 28, angle: 60}
+  - {type: straight, length: 22}
+  - {type: arc, radius: 15, angle: -110}
+  - {type: slalom, cycles: 3, wavelength: 26, swing: 2.5}
+  - {type: straight, length: 20}
+  - {type: arc, radius: 10, angle: 180, width: 6.5}
+  - {type: straight, length: 40}
+  - {type: arc, radius: 20, angle: -90}
+  - {type: arc, radius: 32, angle: 70}
+  - {type: slalom, cycles: 1, wavelength: 30, swing: 3, first: right}
+  - {type: straight, length: 60}

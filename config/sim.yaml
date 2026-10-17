@@ -1,0 +1,117 @@
+# Simulation / event configuration. Values here are the official event settings; teams may
+# override any of them locally with --set key.path=value, but scored runs use this file.
+
+backend: carla                # carla | bicycle (bicycle = fast dev-only model, no CARLA needed)
+
+sim:
+  physics_dt: 0.025           # s, physics tick (CARLA runs substeps of <= 10 ms inside)
+  control_hz: 20              # controller step() rate; must divide 1/physics_dt
+  max_time_s: 240             # hard timeout -> DNF
+  seed: 0                     # perception noise / perturbation RNG seed
+  realtime_factor: 0          # 0 = as fast as possible; 1 = wall-clock pace (CLI: --realtime [FACTOR])
+
+carla:
+  host: localhost
+  port: 2000
+  timeout_s: 30
+  render: true                # false = no_rendering_mode (fastest, for batch scoring)
+  spectator: chase            # chase | none
+  draw_path: true             # draw Command.path in the 3D view
+  pad_margin_m: 500           # the asphalt pad extends this far past the course so the ground reaches the horizon
+  paint_lines: true           # draw the start (green) and finish (chequered) lines on the pad
+  spawn_cones: true
+  cone_blueprint: static.prop.constructioncone          # boundary cones
+  marker_cone_blueprint: static.prop.constructioncone   # start/finish line markers
+  obstacle_cone_blueprint: static.prop.constructioncone # unmapped obstacle cones
+  cone_physics: true          # cones can be knocked over (scoring uses surveyed positions)
+  weather: ClearNoon
+  record: false               # CARLA recorder log for 3D replay (saved on the server side)
+  measure_wheel_angle: true
+
+vehicle:
+  blueprint: vehicle.tesla.model3
+  max_steer_deg: 35.0         # road-wheel angle at |steer| = 1 (CARLA default of 70 deg is unrealistic)
+  carla_tire_friction: 1.2    # CARLA default 3.5 gives ~2.4 g of grip; 1.2 gives ~0.96 g (street tyres)
+  carla_brake_torque_nm: 1600 # per wheel; CARLA default 700 Nm only gives ~4 m/s^2
+  carla_torque_scale: 0.75    # stock torque spins the tyres mid-corner (CARLA has no traction control)
+  steer_rate_limit: 2.0       # normalised units / s (full lock-to-centre in 0.5 s)
+  # Published handling limits, measured on CARLA 0.9.16 with `python -m autocross calibrate`
+  # (lateral 9.37 m/s^2, accel 5.24 m/s^2, decel 9.11 m/s^2). Re-measure if the vehicle changes.
+  mu: 0.95
+  max_accel: 5.2
+  max_decel: 9.0
+  max_speed: 40.0
+  bicycle:                    # dev backend parameters; refit to CARLA with `autocross fit-bicycle --write`
+    mass: 1845.0
+    wheelbase: 3.0
+    cg_to_front: 1.45
+    cg_height: 0.5
+    track_width: 1.67
+    length: 4.79
+    width: 2.16
+    mu: 0.97
+    cornering_stiffness_per_load: 14.0
+    max_drive_force: 9900.0
+    max_power_w: 200000.0
+    max_brake_force: 17500.0
+    drag_area: 0.55
+    rolling_resistance: 0.012
+    steer_time_constant: 0.06
+    front_drive_fraction: 0.4   # AWD torque split
+    traction_limit: 0.97        # TC/ABS: max longitudinal force as a fraction of mu*Fz
+
+actuators:
+  delay_steps: 0              # control periods between a command and its application
+
+road_model:                   # processed perception output given to teams every step (Observation.road)
+  range_m: 40.0               # preview horizon along the course (sight distance)
+  step_m: 1.0                 # preview sample spacing
+  corner_min_radius_m: 80.0   # curvature tighter than this counts as a corner
+  corner_min_angle_deg: 15.0  # ... if it turns at least this much
+  # lane-model style errors (0 = ideal ground truth). Error grows with distance:
+  # e(d) = offset + heading * d + 0.5 * curvature * d^2
+  offset_noise_std_m: 0.0
+  heading_noise_std_deg: 0.0
+  curvature_noise_std: 0.0
+  obstacle_noise_std_m: 0.0
+
+perception:                   # raw cone detections (Observation.cones), optional for teams
+  enabled: true
+  range_m: 30.0
+  fov_deg: 140.0
+  mount_x_m: 1.5
+  noise_std_m: 0.03
+  noise_std_per_m: 0.004
+  dropout: 0.0
+  misclassification: 0.0
+
+track_knowledge: perception   # perception = no map (EIC rules; road model + cones only)
+                              # full = course map also given in on_start (practice / debugging only)
+
+compute_budget:
+  mode: enforce               # enforce | measure
+  cpu_cores: 1
+  step_deadline_ms: 50        # = control period
+  init_timeout_s: 60          # on_start() may precompute (e.g. offline racing line)
+  memory_mb: 1024
+  allow_gpu: false
+  hard_timeout_s: 10
+
+sandbox:
+  protected_paths: [tracks, runs]   # controllers cannot open these (relative to the repo root), nor the
+                                    # course being driven: keeps evaluation maps and earlier runs off limits
+
+rules:
+  off_course_rule: all_wheels # center | any_wheel | all_wheels (SCCA: all four wheels out)
+  off_course_reentry_s: 0.3
+  off_course_dnf_s: 5.0
+  lost_distance_m: 15.0
+  wrong_way_m: 15.0
+  stuck_s: 8.0
+  cone_hit_margin_m: 0.1
+  gate_spacing_m: 20.0        # scored gates every N metres along the course
+  path_commit_s: 0.5          # path deviation is measured against the path published this long ago
+
+output:
+  runs_dir: runs
+  plot: true

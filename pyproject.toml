@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autocross-sim"
+version = "0.1.0"
+description = "EcoCAR autocross hackathon simulation harness (CARLA + bicycle-model backends)"
+requires-python = ">=3.10,<3.13"
+dependencies = ["numpy>=1.24", "PyYAML>=6.0", "psutil>=5.9", "matplotlib>=3.7", "pygame>=2.5"]
+
+[project.optional-dependencies]
+carla = ["carla==0.9.16"]
+dev = ["pytest>=7"]
+
+[project.scripts]
+autocross = "autocross.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["autocross*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

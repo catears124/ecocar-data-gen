@@ -1,0 +1,10 @@
+name = "corpus"
+version = "1.0.0"
+defaultTargets = ["corpuscheck"]
+
+[[lean_lib]]
+name = "Corpus"
+
+[[lean_exe]]
+name = "corpuscheck"
+root = "Main"

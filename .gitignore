@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+runs/
+# event-day courses stay private until released
+tracks/private
+tracks/*.png
+# team submissions (judges score them from here)
+teams
+# generated imitation-data corpora and Lean build output
+datasets/
+lean/.lake/
+*.manifest.lean/

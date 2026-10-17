@@ -1,0 +1,19 @@
+# Robustness sweep used by `python -m autocross batch`. Every course is run under every
+# perturbation set for every seed. Keys are documented in autocross/config.py (PERTURBATION_KEYS).
+tracks:
+  - tracks/hackathon_test.yaml
+  - tracks/practice_loop.yaml
+seeds: [0, 1]
+overrides:
+  carla: {render: false}          # batch runs are headless for speed
+perturbations:
+  nominal: {}
+  noisy_road_model: {road_offset_noise: 0.1, road_heading_noise_deg: 0.5, road_curvature_noise: 0.002}
+  short_sight: {road_range_m: 25}
+  noisy_perception: {cone_noise_std: 0.15, cone_dropout: 0.15}
+  misclassified_cones: {misclassification: 0.05}
+  low_grip: {friction_scale: 0.8}
+  heavy_vehicle: {mass_scale: 1.15}
+  actuation_latency: {actuation_delay_steps: 2}
+  steering_bias: {steer_bias: 0.03}
+  start_offset: {start_lateral_offset: 1.0, start_yaw_offset_deg: 6}

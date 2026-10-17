@@ -1,0 +1,50 @@
+# Scoring rubric. Each computed category is scored 0-100 by linear interpolation between a
+# "full marks" and a "zero marks" value, then weighted. Penalty points are deducted per
+# occurrence from the weighted total. Judged categories are entered separately
+# (`python -m autocross score RUN --judged innovation=80`).
+
+weights:                     # points available; sum = 100
+  completion_time: 30
+  deviation: 15
+  compute: 15
+  dynamics: 15
+  innovation: 25             # judged: live pitch / Spirit of Innovation (not computed)
+
+time:
+  reference: auto            # auto = course reference_time if given, else centerline friction-limited estimate
+  full_marks_ratio: 0.95     # time <= 0.95 x reference -> 100
+  zero_marks_ratio: 2.00     # time >= 2.0 x reference  -> 0
+
+deviation:                   # tracking error w.r.t. the controller's published path (or centerline)
+  path_err_mean_m: [0.10, 1.00]
+  path_err_max_m: [0.50, 3.00]
+  weights: {mean: 0.6, max: 0.4}
+
+compute:
+  p99_fraction_of_deadline: [0.10, 1.00]
+  overrun_fraction: [0.00, 0.05]
+  memory_fraction_of_limit: [0.25, 1.00]
+  weights: {latency: 0.6, overruns: 0.3, memory: 0.1}
+
+dynamics:                    # fraction of time violating physical plausibility
+  grip_demand_over_frac: [0.00, 0.20]    # commanded steer needs >110% of available grip
+  rear_slip_over_frac: [0.00, 0.15]      # rear axle sliding (|rear slip angle| > 6 deg)
+  steer_rate_sat_frac: [0.00, 0.30]      # commands faster than the steering actuator
+  pedal_overlap_frac: [0.00, 0.10]       # throttle and brake at the same time
+  weights: {grip: 0.35, rear_slip: 0.3, steer_rate: 0.25, pedal: 0.1}
+
+penalties:                   # points deducted per occurrence (technical total floors at 0)
+  cone_hit: 2
+  off_course: 5
+  missed_gate: 10
+  controller_error: 1
+  over_memory: 5
+
+dnf:
+  time_points: 0             # completion-time category score on DNF
+  scale_other_by_progress: true   # other categories multiplied by fraction of course completed
+
+adjusted_time_s:             # classic autocross "raw + penalties" time, reported for reference
+  cone_hit: 2
+  missed_gate: 10
+  off_course: 0

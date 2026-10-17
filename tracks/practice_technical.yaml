@@ -1,0 +1,33 @@
+# Technical practice course: a fast narrow kink, a braking zone into a hairpin, a decreasing-radius
+# turn, esses and alternating obstacle gates. Reactive centerline tracking that is fast on the other
+# practice courses struggles here; plan your path and speed ahead.
+name: practice_technical
+closed: false
+width: 5.5
+cone_spacing: 5.0
+start_offset: 8.0
+finish_runoff: 40.0
+origin: [0.0, 0.0, 0.0]
+segments:
+- {type: straight, length: 30.0}
+- {type: straight, length: 70.0}
+- {type: arc, radius: 70.0, angle: -16.0, width: 5.0}
+- {type: arc, radius: 70.0, angle: 16.0, width: 5.0}
+- {type: straight, length: 45.0}
+- {type: arc, radius: 10.0, angle: -120.0, width: 6.5}
+- {type: arc, radius: 25.0, angle: -50.0}
+- {type: arc, radius: 35.0, angle: 40.0}
+- {type: arc, radius: 20.0, angle: 50.0}
+- {type: arc, radius: 11.0, angle: 70.0, width: 6.5}
+- {type: straight, length: 20.0}
+- {type: arc, radius: 13.0, angle: -60.0}
+- {type: arc, radius: 13.0, angle: 120.0}
+- {type: arc, radius: 13.0, angle: -60.0}
+- {type: straight, length: 80.0}
+- {type: arc, radius: 30.0, angle: 90.0}
+- {type: straight, length: 60.0}
+obstacles:
+- {s: 65.0, offset: -1.7, width: 1.4}
+- {s: 368.6, offset: 1.75, width: 1.3}
+- {s: 392.6, offset: -1.75, width: 1.3}
+- {s: 416.6, offset: 1.75, width: 1.3}

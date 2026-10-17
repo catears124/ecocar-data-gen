@@ -1,0 +1,30 @@
+name: practice_obstacles
+closed: false
+width: 5.5
+cone_spacing: 5.0
+start_offset: 8.0
+finish_runoff: 40.0
+origin: [0.0, 0.0, 0.0]
+segments:
+- {type: straight, length: 30.0}
+- {type: slalom, cycles: 2, wavelength: 24.1, swing: 2.7, first: right}
+- {type: straight, length: 29.7}
+- {type: straight, length: 29.9}
+- {type: arc, radius: 32.0, angle: 79.8}
+- {type: arc, radius: 13.1, angle: 76.9}
+- {type: slalom, cycles: 2, wavelength: 25.0, swing: 2.9, first: right}
+- {type: slalom, cycles: 3, wavelength: 24.2, swing: 2.7, first: left}
+- {type: arc, radius: 44.1, angle: -55.6}
+- {type: arc, radius: 9.5, angle: 180.3, width: 6.5}
+- {type: arc, radius: 27.2, angle: 33.5}
+- {type: arc, radius: 34.0, angle: -54.6}
+- {type: arc, radius: 42.0, angle: -70.6}
+- {type: arc, radius: 20.1, angle: 90.1}
+- {type: arc, radius: 11.3, angle: -171.4, width: 6.5}
+- {type: slalom, cycles: 2, wavelength: 25.5, swing: 2.9, first: right}
+- {type: arc, radius: 41.3, angle: -67.7}
+- {type: straight, length: 55.0}
+obstacles:
+- {s: 111.3, offset: -1.86, width: 1.78}
+- {s: 192.1, offset: 2.14, width: 1.22}
+- {s: 281.1, offset: -1.84, width: 1.82}
