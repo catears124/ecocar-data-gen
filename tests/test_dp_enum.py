@@ -144,3 +144,119 @@ def test_python_dp_mirror_matches_enumeration():
     best, _ = enumerate_optimum()
     assert frontier, "DP frontier is empty"
     assert min(frontier.values()) == best
+
+
+# --- Speed dynamics: acceleration reachability, caps, declared travel time ----
+#
+# Lean side (kernel reduction, no native_decide) for the same instance:
+#   timeAt 0, timeAt 250, timeAt 500 = 120, 60, 40
+#   value toySpeedModel toySpeedModel.stages toySpeedStart = toySpeedEnumMin = 160
+#   toySpeedExtract = [250, 500, 250]  (cost 160, chain legal)
+#   toySpeedCandidates.any toySpeedChain = true      (nonempty)
+#   toySpeedOK 1 0 500 = false                       (acceleration reachability bites)
+#   toySpeedOK 3 500 500 = false, toySpeedOK 3 500 250 = true   (the turn caps speed)
+
+SPEED_GRID = (0, 250, 500)
+SPEED_CAPS = (500, 500, 250)   # cap of the arriving station 1, 2, 3
+TOY_ACCEL = 250
+TIME_TABLE = {0: 120, 250: 60, 500: 40}
+
+
+def speed_step_ok(target_station: int, v: int, w: int) -> bool:
+    """Declared bucket, under the cap of the arriving station, inside the
+    acceleration envelope (the concrete instance declares no braking limit)."""
+    return (
+        w in SPEED_GRID
+        and w <= SPEED_CAPS[target_station - 1]
+        and w <= v + TOY_ACCEL
+    )
+
+
+def speed_chain_ok(chain: list[int]) -> bool:
+    if len(chain) != len(SPEED_CAPS):
+        return False
+    v = 0
+    for i, w in enumerate(chain):
+        if not speed_step_ok(i + 1, v, w):
+            return False
+        v = w
+    return True
+
+
+def speed_chain_cost(chain: list[int]) -> int:
+    return sum(TIME_TABLE[w] for w in chain)
+
+
+def enumerate_speed_optimum() -> tuple[int, list[list[int]]]:
+    feasible = [list(c) for c in itertools.product(SPEED_GRID, repeat=len(SPEED_CAPS))
+                if speed_chain_ok(list(c))]
+    best = min(speed_chain_cost(c) for c in feasible)
+    return best, [c for c in feasible if speed_chain_cost(c) == best]
+
+
+def test_speed_reachability_and_caps_bite():
+    # Cannot jump from standstill to the top bucket in one station.
+    assert not speed_step_ok(1, 0, 500)
+    # The turn caps the arrival speed, so the optimum is not "always fastest".
+    assert not speed_step_ok(3, 500, 500)
+    assert speed_step_ok(3, 500, 250)
+    # The declared time table is strictly decreasing in speed.
+    assert TIME_TABLE[0] > TIME_TABLE[250] > TIME_TABLE[500]
+
+
+def test_speed_enumeration_is_nonempty_and_nontrivial():
+    best, argmins = enumerate_speed_optimum()
+    assert best == 160, f"exhaustive speed optimum {best}"
+    assert argmins == [[250, 500, 250]], f"exhaustive speed argmin {argmins}"
+
+
+def test_speed_python_dp_mirror_matches_enumeration():
+    """Layered DP over (station, speed bucket), the same discrete model Lean's
+    `toySpeedModel` reduces to for the straight offset profile."""
+    frontier = {0: 0}  # speed bucket -> best declared time so far
+    for station in range(1, len(SPEED_CAPS) + 1):
+        nxt: dict[int, int] = {}
+        for v, cost in frontier.items():
+            for w in SPEED_GRID:
+                if not speed_step_ok(station, v, w):
+                    continue
+                candidate = cost + TIME_TABLE[w]
+                if w not in nxt or candidate < nxt[w]:
+                    nxt[w] = candidate
+        frontier = nxt
+    best, _ = enumerate_speed_optimum()
+    assert frontier, "speed DP frontier is empty"
+    assert min(frontier.values()) == best
+
+
+def test_speed_lean_kernel_agrees_with_python_enumeration():
+    if shutil.which("lake") is None:
+        pytest.skip("lake not available")
+    probe = LEAN_DIR / "dpspeed_probe.lean"
+    probe.write_text(
+        "import Corpus\n"
+        "open Corpus Corpus.Bellman Corpus.Dp\n"
+        "#eval (value toySpeedModel toySpeedModel.stages toySpeedStart, toySpeedEnumMin, "
+        "toySpeedCost toySpeedExtract, toySpeedChain toySpeedExtract, toySpeedExtract)\n",
+        encoding="utf-8",
+    )
+    try:
+        out = subprocess.run(
+            ["lake", "env", "lean", "dpspeed_probe.lean"],
+            cwd=LEAN_DIR, capture_output=True, text=True, timeout=600,
+        )
+    finally:
+        probe.unlink(missing_ok=True)
+    if out.returncode != 0:
+        pytest.skip(f"lake env lean failed: {out.stdout}{out.stderr}")
+    line = out.stdout.strip().splitlines()[-1]
+    parts = line.strip("()").split(",")
+    value, enum_min, extract_cost, chain_ok = parts[0], parts[1], parts[2], parts[3]
+    extract = ",".join(parts[4:]).strip()
+    best, argmins = enumerate_speed_optimum()
+    assert int(value) == best, f"DP value {value} != enumeration {best}"
+    assert int(enum_min) == best
+    assert int(extract_cost) == best, "extracted speed chain is not optimal"
+    assert chain_ok.strip() == "true", "extracted speed chain violates reachability/caps"
+    assert extract.strip() == "[250, 500, 250]"
+    assert argmins == [[250, 500, 250]]

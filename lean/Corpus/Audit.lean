@@ -86,3 +86,11 @@ import Corpus
 #print axioms Corpus.Dp.toy_dp_eq_enumeration
 #print axioms Corpus.Dp.toy_optimal_exhaustive
 #print axioms Corpus.Dp.toy_extract_optimal
+#print axioms Corpus.Dp.speed_dp_optimal
+#print axioms Corpus.Dp.toy_time_table_decreasing
+#print axioms Corpus.Dp.toy_accel_reachability_bites
+#print axioms Corpus.Dp.toy_turn_cap_bites
+#print axioms Corpus.Dp.toy_speed_nonempty
+#print axioms Corpus.Dp.toy_speed_dp_eq_enum
+#print axioms Corpus.Dp.toy_speed_optimal_exhaustive
+#print axioms Corpus.Dp.toy_speed_extract_optimal
