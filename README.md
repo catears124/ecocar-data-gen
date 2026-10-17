@@ -4,7 +4,9 @@ VeriDrive is a machine-verified drive-planning stack: certified decision laws wi
 
 VeriDrive is a hackathon submission with two deliverables, plus the mil-sim harness they were built against.
 
-**1. A controller** — `teams/certline.py`, the single-file submission for the autocross evaluation. It vendors two integer decision laws from the certified work below in their exact arithmetic (`cert-2` longitudinal, `steer-1` lateral) and adds a minimum-curvature racing line constrained to stay inside the *certified clearance interval*, obstacle memory, and delay / steering-bias / grip-compensation layers. NumPy only, no GPU, no file I/O, one `Controller` subclass, ~49 KB. It is tracked in this repository (`.gitignore` keeps other teams' folders private but ships ours), and the release `controller-submission` carries the same file as its only asset.
+**1. A controller** — `teams/certline.py`, the single-file submission for the autocross evaluation: the two certified decision laws above vendored in their exact arithmetic (`cert-2` longitudinal, `steer-1` lateral), a minimum-curvature racing line constrained to stay inside the *certified clearance interval* (so every published offset still satisfies `steer-1`'s clearance predicate), obstacle memory for the sensor's 3 m drop-out, and delay / steering-bias / grip-compensation layers. NumPy only, no GPU, no file I/O, one `Controller` subclass, 49,977 bytes, sha256 `2d96668e3e30df80…`.
+
+Measured with the official settings (enforcing 50 ms deadline, single run, no competing load) on 12 courses (5 public + 7 generated, bicycle backend): mean **62.5 / 75**, **0 off-course and 0 missed gates**, 10 cone hits — **1 on the five public courses** — path deviation 12.3/15, no controller errors, no DNF. That is +5.9 points over the same controller before the plan-smoothing fix now documented in the code: `hackathon_test` **52.6 s** (was 62.5 s), `practice_basic` **32.2 s** (was 38.2 s), `practice_technical` 42.1 s (was 44.6 s), `practice_loop` 89.6 s (was 104.4 s). The harness's own pure-pursuit baseline scores 61.2/75 with 35 cones on the same courses, so this entry is cleaner *and* now ahead of the baseline. The underlying cause was a measurement, not a controller limit: the speed caps were driven by `d²offset/ds²` computed by double differencing a slightly wobbly plan, plus a max over neighbouring stations, so every corner was braked for a radius that was not there. It is tracked in this repository and the release `controller-submission` carries the same file as its only asset.
 
 **2. A certified contrastive imitation corpus with Lean 4 proofs** — the generator and certificate machinery in `autocross/datagen/`, the models and proofs in `lean/`, and the specification in `docs/datagen.md`. The Lean side proves properties of the decision laws (greatest-safe, minimum-violation, branch completeness of the lateral plan), corpus properties (split/coverage/mirror), a pure-pursuit tracker error bound, and — over a discrete lattice — a nonvacuous **travel-time optimality** result for the joint offset/speed dynamic program (`Corpus.Dp.speed_dp_optimal`). What is proven, what is measured and what is trusted is split explicitly in [`SUBMISSION.md`](SUBMISSION.md).
 
@@ -15,7 +17,7 @@ The rest of this README is the harness manual: setup, commands, configuration, s
 ## Verify the submission in three commands
 
 ```powershell
-git clone https://github.com/catears124/ecocar-data-gen && cd ecocar-data-gen
+git clone https://github.com/catears124/veriDrive && cd ecocar-data-gen
 python -m pip install -r requirements.txt pytest
 python -m autocross selftest -c teams/certline.py            # every public course, bicycle backend
 python -m autocross selftest -c teams/certline.py --carla    # the same courses again on CARLA 0.9.16
@@ -85,7 +87,7 @@ On Windows, install Python from python.org and tick **"py launcher"**, because t
 ### Setup (one time)
 
 ```powershell
-git clone https://github.com/catears124/ecocar-data-gen.git
+git clone https://github.com/catears124/veriDrive.git
 cd ecocar-data-gen
 powershell -ExecutionPolicy Bypass -File scripts\setup.ps1      # Linux: ./scripts/setup.sh
 ```

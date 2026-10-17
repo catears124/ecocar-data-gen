@@ -10,8 +10,8 @@ The submission format documented by the harness is either one Python file or a f
 ## Controller submission
 
 - Path: `teams/certline.py`
-- Size: 48,862 bytes
-- SHA-256: `9d4e6ee34e7dad1f3ff31c5c36b0b0e58d08585a72391ff4875a6fe538186eff`
+- Size: 49,977 bytes
+- SHA-256: `2d96668e3e30df8004ec568f4863daf1aeac0d6af749e448b192d2774ab5f35e`
 - Runtime dependency: NumPy only (the harness provides it); no GPU is used by the controller.
 - Judge commands:
 
@@ -21,6 +21,15 @@ python -m autocross selftest -c teams/certline.py --carla
 ```
 
 The first command exercises the public courses on the bicycle backend. The second additionally requires a reachable CARLA 0.9.16 server/client and a dedicated GPU as documented by the harness. The controller itself is constrained to the sandbox's one CPU core, 50 ms step deadline, and no GPU.
+
+## Controller and baseline
+
+The submitted controller is `teams/certline.py` (the file above). `controllers/baseline_pure_pursuit.py` is the harness's own reference baseline, kept for scale.
+
+| controller | mean technical (bicycle, 12 courses, official settings) | cones | off | gates | deviation | step p99 |
+|---|---|---|---|---|---|---|
+| `teams/certline.py` | 62.5 / 75 | 10 | 0 | 0 | 12.3 / 15 | ≤ 26 ms |
+| `controllers/baseline_pure_pursuit.py` | 61.2 / 75 | 35 | 0 | 0 | — | ≤ 3.8 ms |
 
 ## Verification commands
 

@@ -23,9 +23,9 @@ requires-python = ">=3.10,<3.13"
 dependencies = ["numpy>=1.24", "PyYAML>=6.0", "psutil>=5.9", "matplotlib>=3.7", "pygame>=2.5"]
 
 [project.urls]
-Homepage = "https://github.com/catears124/ecocar-data-gen"
-Repository = "https://github.com/catears124/ecocar-data-gen"
-Issues = "https://github.com/catears124/ecocar-data-gen/issues"
+Homepage = "https://github.com/catears124/veriDrive"
+Repository = "https://github.com/catears124/veriDrive"
+Issues = "https://github.com/catears124/veriDrive/issues"
 
 [project.optional-dependencies]
 carla = ["carla==0.9.16"]

@@ -145,6 +145,10 @@ DEFAULTS = dict(
                             #   would reject is the one thing the tracker must never be handed)
     line_iters=8,           # active-set iterations of the box QP
     line_eps=1e-6,          # Tikhonov term so the free block is always invertible
+    line_smooth=5,          # moving-average window on the plan offsets [stations]; the
+                            #   published path is the smoothed one, re-clamped into the
+                            #   certified interval, so its curvature demand is real, not
+                            #   the second-difference noise of the raw plan
     # --- obstacle memory (the road model drops an obstacle 3 m behind the car while the rear axle
     #     is still alongside it; the plan must not pull back into it) ---------------------------
     obs_pre=4.5,            # keep a remembered obstacle this far before its station [m]
@@ -506,6 +510,16 @@ def _box_qp(H, g, lo, hi, pin, iters: int, eps: float):
     return np.clip(d, lo, hi)
 
 
+def _smooth(x: np.ndarray, w: int) -> np.ndarray:
+    """Odd-window moving average with edge padding (w <= 1 returns x unchanged)."""
+    w = int(w)
+    if w <= 1 or len(x) < w:
+        return x
+    pad = w // 2
+    kern = np.ones(w) / float(w)
+    return np.convolve(np.pad(x, pad, mode="edge"), kern, mode="valid")
+
+
 def _plan_boxes(c: dict, q: dict, mem: list[dict], cfg: dict) -> tuple[np.ndarray, np.ndarray]:
     """Certified clearance interval (mm) per station, shrunk by ``line_shrink``.
 
@@ -658,6 +672,11 @@ class CertifiedRacingLine(Controller):
         lo_mm, hi_mm = _plan_boxes(self.steer_c, q, self.mem, cfg)
         line = (_racing_line(self.steer_c, q, cl, nrm, lo_mm, hi_mm, self.prev_line, cfg)
                 if cfg["line_on"] > 0.5 else None)
+        if line is not None and int(cfg["line_smooth"]) > 1:
+            # Smooth the plan, then clamp back into the certified interval: the published path is
+            # smooth (so d2/ds2 is a real curvature demand rather than station-to-station noise)
+            # while every station still satisfies steer-1's clearance predicate.
+            line = np.clip(_smooth(line, int(cfg["line_smooth"])), lo_mm / 1000.0, hi_mm / 1000.0)
         if line is not None and _plausible(cl + nrm * line[:, None]):
             off, line_used = np.clip(line, -lim, lim), 1.0        # racing line, certified-clear
         else:
