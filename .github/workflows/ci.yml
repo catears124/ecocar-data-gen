@@ -17,6 +17,7 @@ jobs:
       LEAN_CHECKERS: >-
         teachercheck
         actuatorcheck
+        timedcheck
     steps:
       - uses: actions/checkout@v4
 
@@ -80,6 +81,25 @@ jobs:
           python tools/actuator_certificate.py --track tracks/practice_basic.yaml
           --station 20 --station 35 --station 60 --speed 8
           --out /tmp/actuator-certificates --require-lean --corrupt
+
+      - name: Timed verification tests (model/solver/certificate parity, no skips)
+        run: >-
+          python -m pytest -q -p no:cacheprovider -rs
+          tests/test_timed_model.py tests/test_timed_lean.py
+
+      - name: Timed certificates accepted by Lean (real instances)
+        run: >-
+          python tools/timed_certificate.py --track tracks/practice_basic.yaml
+          --station 20 --station 35 --out /tmp/timed-certificates
+          --lean-checker lean/.lake/build/bin/timedcheck
+
+      - name: Executed-action audit (recorded run: hash/plan/command binding + Lean)
+        run: |
+          python tools/bench.py --controller timed=teams/timed_exact.py \
+            --tracks tracks/practice_basic.yaml --jobs 1 --record-obs \
+            --out /tmp/timed-bench/basic.json --runs-root /tmp/timed-bench/basic
+          python tools/timed_audit.py /tmp/timed-bench/basic/timed_practice_basic_s0 \
+            --limit 6 --lean-checker lean/.lake/build/bin/timedcheck
 
       - name: Python tests (incl. adversarial certificate-integrity tests)
         run: >-

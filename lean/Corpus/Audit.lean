@@ -423,3 +423,18 @@ import Corpus.TeacherWitness
 #print axioms Corpus.Actuator.certificate_infeasible
 #print axioms Corpus.Actuator.certificate_optimal
 #print axioms Corpus.Actuator.witness_check
+
+/-! ## timed-1 -/
+#print axioms Corpus.Timed.allPlans_complete
+#print axioms Corpus.Timed.allPlans_sound
+#print axioms Corpus.Timed.certificate_cost
+#print axioms Corpus.Timed.certificate_first_action
+#print axioms Corpus.Timed.certificate_first_action_optimal
+#print axioms Corpus.Timed.certificate_optimal
+#print axioms Corpus.Timed.certificate_tie_break
+#print axioms Corpus.Timed.checkCert_sound
+#print axioms Corpus.Timed.leLex_antisymm
+#print axioms Corpus.Timed.leLex_refl
+#print axioms Corpus.Timed.leLex_total
+#print axioms Corpus.Timed.leLex_trans
+#print axioms Corpus.Timed.witness_check

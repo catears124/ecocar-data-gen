@@ -1,0 +1,42 @@
+{
+ "run": "C:\\Users\\y\\Desktop\\carla\\veridrive-proof-closure\\experiments\\bench\\basic_recorded\\timed_practice_basic_s0",
+ "steps": 720,
+ "lean_checker": "C:\\Users\\y\\Desktop\\carla\\veridrive-proof-closure\\lean\\.lake\\build\\bin\\timedcheck.exe",
+ "exact_steps": 720,
+ "hash_bound": 720,
+ "plan_match": 720,
+ "command_match": 720,
+ "python_checked": 20,
+ "lean_checked": 20,
+ "lean_attempted": 20,
+ "samples": [
+  0,
+  38,
+  76,
+  114,
+  151,
+  189,
+  227,
+  265,
+  303,
+  341,
+  378,
+  416,
+  454,
+  492,
+  530,
+  568,
+  605,
+  643,
+  681,
+  719
+ ],
+ "fractions": {
+  "hash_bound": 1.0,
+  "plan_match": 1.0,
+  "command_match": 1.0,
+  "python_checked_of_sampled": 1.0,
+  "lean_checked_of_attempted": 1.0,
+  "lean_checked_of_all": 0.027777777777777776
+ }
+}

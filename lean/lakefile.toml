@@ -16,3 +16,7 @@ root = "TeacherCheck"
 [[lean_exe]]
 name = "actuatorcheck"
 root = "ActuatorCheck"
+
+[[lean_exe]]
+name = "timedcheck"
+root = "TimedCheck"

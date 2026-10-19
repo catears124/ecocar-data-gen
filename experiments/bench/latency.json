@@ -1,0 +1,127 @@
+{
+ "summary": {
+  "jobs": 2,
+  "mode": "measure",
+  "seeds": [
+   0
+  ],
+  "tracks": [
+   "practice_basic",
+   "practice_technical"
+  ],
+  "set": {},
+  "perturb": {},
+  "by_controller": {
+   "timed": {
+    "runs": 2,
+    "finished": 2,
+    "technical_mean": 51.96,
+    "time_mean_finished_s": 35.84017864606646,
+    "adjusted_time_mean_finished_s": 41.84,
+    "cones": 6,
+    "off_course": 0,
+    "missed_gate": 0,
+    "exact_fraction_mean": 1.0,
+    "feasible_fraction_mean": 0.7327991452991454,
+    "step_ms_p50_median": 24.20890000939835,
+    "step_ms_p99_max": 56.44275401456977,
+    "overruns": 25,
+    "peak_memory_mb_max": 43.71484375,
+    "solve_ms_p50_max": 22.1762,
+    "solve_ms_p99_max": 53.9641,
+    "categories_mean": {
+     "completion_time": 78.435,
+     "compute": 34.16,
+     "deviation": 97.88,
+     "dynamics": 97.495
+    }
+   }
+  }
+ },
+ "runs": [
+  {
+   "controller": "timed",
+   "track": "practice_basic",
+   "seed": 0,
+   "perturb": {},
+   "finished": true,
+   "dnf_reason": null,
+   "progress": 1.0,
+   "time_s": 34.353165774478235,
+   "reference_time_s": 29.322336369105905,
+   "adjusted_time_s": 36.353,
+   "cones": 1,
+   "obstacle_hits": 0,
+   "off_course": 0,
+   "missed_gate": 0,
+   "technical": 54.95,
+   "category_scores": {
+    "completion_time": 78.9,
+    "deviation": 98.52,
+    "compute": 23.33,
+    "dynamics": 100.0
+   },
+   "step_ms_p50": 24.20890000939835,
+   "step_ms_p99": 56.44275401456977,
+   "step_ms_max": 63.85669999872334,
+   "overruns": 20,
+   "peak_memory_mb": 42.7734375,
+   "path_err_mean_m": 0.08414884468756194,
+   "path_err_max_m": 0.5926040780724564,
+   "controller_error": "",
+   "run_dir": "experiments\\bench\\latency\\timed_practice_basic_s0",
+   "control_steps": 720,
+   "status_counts": {
+    "1": 720
+   },
+   "exact_fraction": 1.0,
+   "fallback_reasons": {},
+   "feasible_fraction_of_exact": 0.7694444444444445,
+   "solve_ms_p50": 22.1762,
+   "solve_ms_p99": 53.9641,
+   "solve_ms_max": 61.3797
+  },
+  {
+   "controller": "timed",
+   "track": "practice_technical",
+   "seed": 0,
+   "perturb": {},
+   "finished": true,
+   "dnf_reason": null,
+   "progress": 1.0,
+   "time_s": 37.3271915176547,
+   "reference_time_s": 31.597609036274566,
+   "adjusted_time_s": 47.327,
+   "cones": 5,
+   "obstacle_hits": 0,
+   "off_course": 0,
+   "missed_gate": 0,
+   "technical": 48.97,
+   "category_scores": {
+    "completion_time": 77.97,
+    "deviation": 97.24,
+    "compute": 44.99,
+    "dynamics": 94.99
+   },
+   "step_ms_p50": 18.706799994106404,
+   "step_ms_p99": 43.37006200250472,
+   "step_ms_max": 85.57359999394976,
+   "overruns": 5,
+   "peak_memory_mb": 43.71484375,
+   "path_err_mean_m": 0.08487949896317468,
+   "path_err_max_m": 0.6724160455073381,
+   "controller_error": "",
+   "run_dir": "experiments\\bench\\latency\\timed_practice_technical_s0",
+   "control_steps": 780,
+   "status_counts": {
+    "1": 780
+   },
+   "exact_fraction": 1.0,
+   "fallback_reasons": {},
+   "feasible_fraction_of_exact": 0.6961538461538461,
+   "solve_ms_p50": 17.0381,
+   "solve_ms_p99": 41.0925,
+   "solve_ms_max": 83.6246
+  }
+ ]
+}

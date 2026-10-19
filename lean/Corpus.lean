@@ -23,3 +23,5 @@ import Corpus.Teacher
 import Corpus.TeacherWitness
 import Corpus.Actuator
 import Corpus.ActuatorWitness
+import Corpus.Timed
+import Corpus.TimedWitness
