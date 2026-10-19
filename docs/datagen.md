@@ -159,9 +159,9 @@ The label (`target.longitudinal`) is one of:
   - It does **not** minimise arbitrary violation measures.
 - **`no_feasible_gap`** / **`invalid_input`**: no certificate. These samples are never clean.
 
-**Lateral plan and steering: model `steer-1`.** It reuses `cert-2`'s quantised observation (`Steer.Q = {base, lat}`). The lateral decision is an integer-exact Lean-defined function; the Python expert publishes the path from that function, and the validator recomputes it per sample. Pure-pursuit tracking and the pedal mapping remain the replay-checked tracking layer.
+**Lateral plan and steering: model `steer-2`.** It reuses `cert-2`'s quantised observation (`Steer.Q = {base, lat}`). The lateral decision is an integer-exact Lean-defined function; the Python expert publishes the path from that function, and the validator recomputes it per sample. Pure-pursuit tracking and the pedal mapping remain the replay-checked tracking layer. `steer-2` differs from `steer-1` in one place: the ramp-out weight of an obstacle is capped at 999, so it can never tie the 1000 weight of the next obstacle's hold window. Under `steer-1` such a tie let the earlier obstacle keep supplying the offset inside the later obstacle's window, so the plan could overlap the later obstacle while every recorded clearance was nonnegative (kernel counterexample `SteerClear.old_selector_counterexample`).
 
-**Two levels must be separated.** (a) *Recomputation/certificate integrity:* the lateral label is the output of `Corpus.Steer.decide`, recomputed per sample by the validator and by the compiled checker, with per-sample kernel witnesses. (b) *Interpretation:* feasibility, optimality, and curvature guarantees are only partially proved in Lean today. The missing lateral results are the ramp slope bound, second-difference bound, amplitude bound `|offset| ≤ Cert.stationY`, curvature closure `curv ≤ Cert.kbarOf`, and mirror properties of `sideAmp`/`offs`; no steering-angle bound beyond the clip is proved.
+**Two levels must be separated.** (a) *Recomputation/certificate integrity:* the lateral label is the output of `Corpus.Steer.decide`, recomputed per sample by the validator and by the compiled checker, with per-sample kernel witnesses. (b) *Interpretation:* Lean proves (`SteerClear.plan_ok_hold_clearance`, `plan_ok_clearance`) that a `plan_ok` plan clears every obstacle inside its hold window and keeps every clearance entry nonnegative, under the decidable domain predicates `clearanceDomain` and `holdTargetsOK`; the ramp slope and second-difference bounds (`SteerShape.ramp_slope_bound`, `ramp_second_bound`) and mirror equivariance under `noTies` (`SteerShape.offs_mirror` …) are proved. Not proved: that every corpus sample satisfies `holdTargetsOK` (the checker does not evaluate it per sample), the amplitude bound `|offset| ≤ Cert.stationY`, and curvature closure `curv ≤ Cert.kbarOf`. See `docs/verification_matrix.md`.
 
 At exact gap ties the side choice follows the declared lateral tie rule above.
 
@@ -198,7 +198,7 @@ Sample record (`autocross.datagen.sample`, schema 2). SI units, vehicle frame x 
 | `sample_id` | `<scenario_id>:<step:05d>` (stable) |
 | `scenario_id`, `group_id`, `family`, `split`, `backend`, `step`, `t` | identity and bookkeeping (not policy inputs) |
 | `policy_observation` | **the only policy input** (`autocross.datagen.policy_observation/1`): `speed, vx, vy, yaw_rate, ax, ay, steer, throttle, brake` and `road` = `valid, range_m, lateral_offset, heading_error, curvature, width_left/right, dist_to_left/right_boundary`, the preview arrays and points, and the visible `obstacles` |
-| `target` | `autocross.datagen.training_target/1`. `longitudinal` is the CERTIFIED block: `model, kind, certified, accel_mm_s2, b1/b0/B0_mm2_s2`, or `null` in the approach phase. `lateral` is the CERTIFIED `steer-1` block: `model, kind, certified, side, amp, offset_mm, clearance_mm, curvature_micro, steer_milli`; `clearance_mm` is the nearest forbidden-boundary distance at each station. `uncertified` holds `steer, throttle, brake, target_speed, path, path_frame` |
+| `target` | `autocross.datagen.training_target/1`. `longitudinal` is the CERTIFIED block: `model, kind, certified, accel_mm_s2, b1/b0/B0_mm2_s2`, or `null` in the approach phase. `lateral` is the CERTIFIED `steer-2` block: `model, kind, certified, side, amp, offset_mm, clearance_mm, curvature_micro, steer_milli`; `clearance_mm` is the nearest forbidden-boundary distance at each station. `uncertified` holds `steer, throttle, brake, target_speed, path, path_frame` |
 | `expert` | `phase`, `status`, planner diagnostics (`debug`: outputs, not inputs) |
 | `privileged` | `observation`: `t, step, x, y, yaw, progress, lap, timing_started, cones, road.corners, road.finish_distance`. `oracle`: phase, distances to corner/obstacle/hand-over, true obstacle extent. Evaluation only |
 | `applied` | actuator values on the first and last physics tick of the period, `command_held`, `command_clipped` |
@@ -207,7 +207,7 @@ Sample record (`autocross.datagen.sample`, schema 2). SI units, vehicle frame x 
 | `quality` | `clean`, `exclusion_reasons`, `label_replay_max_abs_diff` |
 | `hashes` | `policy_observation`, `target`, `content` (= policy observation + target; duplicate detection), `record` (the whole record except `hashes` and `timing`). Canonical JSON: sorted keys, no whitespace, shortest float repr |
 
-`index.json` carries `lateral_certificate_model` (`steer-1`), per-run `lateral_cert_model`, `lateral_cert_constants`, and `n_lateral_certified_clean`, plus `totals.clean_lateral_certified_samples`.
+`index.json` carries `lateral_certificate_model` (`steer-2`), per-run `lateral_cert_model`, `lateral_cert_constants`, and `n_lateral_certified_clean`, plus `totals.clean_lateral_certified_samples`.
 
 **Why corners, cones and the finish distance are privileged.**
 - The corner list is computed from the whole course: whether a partly visible corner is listed,

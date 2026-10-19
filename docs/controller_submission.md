@@ -9,7 +9,7 @@ actuation are deliberately outside the certificate.
 ```text
 road observation
     │
-    ├─ decide_lateral: certified steer-1 pass side, offsets, curvature demand
+    ├─ decide_lateral: certified steer-2 pass side, offsets, curvature demand
     │       │
     │       └─ _remember obstacle state
     │              └─ _spare_boxes / _plan_boxes: clearance interval at every station
@@ -19,19 +19,22 @@ road observation
     │                               (|k_road| + 1000|Δ²offset|, window maximum, floor)
     │                                  └─ decide_long: certified greatest-safe acceleration
     │                                         │
-    │                                         └─ tracker: pure pursuit + curvature feed-forward
-    │                                            + yaw-rate damping + grip clamp + steer-rate limit
+    │                                         └─ tracker: path-error state feedback at the predicted
+    │                                            pose + path-curvature feed-forward + grip clamp
+    │                                            + steer-rate limit
     │                                               └─ pedal map: non-overlapping pedals,
     │                                                  side-slip easing, friction-circle clamp
     └─ invalid/exception paths brake rather than publish an invalid command
 ```
 
-`decide_lateral` is the reference steer-1 decision.  It supplies the obstacle pass side and a
+`decide_lateral` is the reference steer-2 decision.  It supplies the obstacle pass side and a
 corridor-clamped offset profile.  `_spare_boxes` intersects that corridor with each remembered
 obstacle’s clearance half-space; `_plan_boxes` optionally shrinks the resulting intervals by
 `line_shrink`.  `_racing_line` minimizes the squared second difference of the *path points*
-`P_i = centerline_i + normal_i * offset_i`, subject to those per-station boxes and the current
-lateral offset at station zero.  Thus this is a small box-constrained quadratic program, not a
+`P_i = centerline_i + normal_i * offset_i`, subject to those per-station boxes, with station zero
+pinned to the previous published plan at the car's new course station (`line_anchor`; clamped into
+the station-zero box, or the car's own lateral offset when there is no previous plan).  Thus this
+is a small box-constrained quadratic program, not a
 second independent obstacle planner.
 
 The speed plan is computed from the path that will actually be published.  The runtime forms the
@@ -39,26 +42,32 @@ road curvature plus offset curvature, uses the maximum over the configured `kapp
 applies `kappa_floor`; the corresponding certified integer curvature input has the model form
 `|k_road| + 1000|Δ²offset|`.  `decide_long` then applies the grip speed cap, obstacle gap-speed cap,
 acceleration/braking reachability, and the terminal-horizon cap.  The tracker follows the same
-published path, and the pedal map leaves lateral grip available rather than commanding throttle
-and brake together.
+published path: it projects the pose the car will have once the command acts (queued commands
+under actuation delay, then `trk_lag` at the current yaw rate) onto the published polyline, takes
+the cross-track and heading errors there (`_path_errors`), and commands
+`atan(L·κ_path + u)` with `u = −(L/v²)(ω²·e_y + 2ζω·v·e_ψ)`, which places the linearised error
+dynamics at natural frequency `trk_omega` and damping `trk_zeta`.  `trk_mode = 0` restores the
+earlier pure-pursuit blend (`k_ff`, `k_pp`, `k_psi`, `k_r`, `k_obs_track`).  The pedal map leaves
+lateral grip available rather than commanding throttle and brake together.
 
 ## Why the certificate follows the racing line
 
 The certificate chain is:
 
-1. `decide_lateral` chooses a pass side and an offset profile under the steer-1 corridor.
+1. `decide_lateral` chooses a pass side and an offset profile under the steer-2 corridor.
 2. `_spare_boxes` computes `lo <= d <= hi` at each station.  These bounds are the corridor walls
-   plus the obstacle clearance half-spaces used by steer-1’s `clearAt` predicate.  Staying in the
+   plus the obstacle clearance half-spaces used by steer-2’s `clearAt` predicate.  Staying in the
    interval is therefore exactly the clearance hypothesis (`clearAt >= 0`), rather than merely
    being visually between the cones.
 3. `_plan_boxes` preserves those intervals (and normally makes them stricter by `line_shrink`).
-   `_racing_line` constrains every solved offset to them and pins the first offset to the car’s
-   current lateral position.  Its output is clipped to the boxes before use.
+   `_racing_line` constrains every solved offset to them and pins the first offset to the
+   previous plan at the car's course station (clamped into the station-zero box).  Its output is
+   clipped to the boxes before use.
 4. The speed curvature is recomputed from that selected path, not copied from the unsmoothed
-   steer-1 profile.  `decide_long` receives the resulting caps and applies its terminal-horizon
+   steer-2 profile.  `decide_long` receives the resulting caps and applies its terminal-horizon
    bound (`b_n <= a_lat * r_h`) to the same planned path.
 
-Consequently, smoothing changes the path only inside the interval on which steer-1’s clearance
+Consequently, smoothing changes the path only inside the interval on which steer-2’s clearance
 predicate holds; it does not silently invalidate the hypothesis used by the terminal-horizon
 bound.  The certificate covers the integer lateral/longitudinal model decisions, not the physical
 tracking error, steering actuator, or CARLA/bicycle dynamics.
@@ -67,19 +76,24 @@ tracking error, steering actuator, or CARLA/bicycle dynamics.
 
 The selection order in `CertifiedRacingLine._step` is intentional:
 
-1. Use the `_racing_line` result when it is finite and `_plausible`.
-2. Otherwise rate-limit and re-project the line (or the certified offsets) with `_project_plan`,
-   clamping it back into the certified intervals after each pass; use it if plausible.
-3. Otherwise use the certified `decide_lateral` offsets as-is (with the controller’s offset cap),
-   if that path is plausible.
-4. If even that path is not plausible, publish the bare centerline as the final emergency
-   drivability fallback.
+Every branch publishes through `_publish_offsets`: absolute cap to `±max_offset` first, then the
+clamp into each nonempty certified interval last (`Controller.publishOffset_inside`).  If any
+station's interval is empty (`lo > hi`), the racing line is skipped and the step is flagged
+uncertified (`debug.cert_clear = 0`, `debug.uncertified_stations > 0`).
 
-For the first three choices, the interval is always re-applied: **clearance safety outranks
-smoothness, and smoothness outranks the published-path metric**.  The last centerline branch is an
-explicit escape hatch for an undrivable preview; it should be read as a recovery behavior, not as a
-new proof that an obstacle clearance interval is satisfied.  The selected path is also saved as
-`prev_line` when appropriate, so the next QP can favor continuity without overriding its boxes.
+1. Use the `_racing_line` result when it is finite and `_plausible` (`debug.line = 1`).
+2. Otherwise rate-limit and re-project the line (or the certified offsets) with `_project_plan`,
+   clamping it back into each nonempty certified interval after each pass; use it if plausible
+   (`debug.line = 2`; `Controller.projectPlan_boxed`).
+3. Otherwise publish the certified `decide_lateral` offsets through the same cap-then-clamp
+   operation, if that path is plausible (`debug.line = 3`).
+4. If even that path is not plausible, publish the centreline through the same operation
+   (`debug.line = 4`).  This is an explicit **uncertified recovery** mode: `cert_clear = 0`.
+
+In modes 1–3 with no empty interval, every published offset lies inside its certified interval:
+**clearance safety outranks smoothness, and smoothness outranks the published-path metric**.  The
+selected path of modes 1–2 is saved as `prev_line` in course coordinates, so the next QP starts on
+it and favours continuity without overriding its boxes.
 
 ## Robustness and actuation layers
 
@@ -106,7 +120,7 @@ true grip, and no obstacle dropout):
 
 ## Known weaknesses and trust boundaries
 
-- The steer-1 combination rule in `_raw_off` keeps the first strictly largest obstacle weight.
+- The steer-2 combination rule in `_raw_off` keeps the first strictly largest obstacle weight.
   Two closely spaced opposing obstacles can therefore switch the winning supplier abruptly and
   produce a lateral fold.  The controller code documents this mechanism in `_project_plan`; that
   function rate-limits and re-clamps the result, but a genuinely pinched clearance interval can
@@ -122,6 +136,12 @@ true grip, and no obstacle dropout):
 - The tracker, pedal mapping, actuator delay model, bias estimate, and grip adaptation are not
   Lean-certified.  The certification claim is limited to the vendored `decide_lateral` /
   `decide_long` model decisions and their stated hypotheses.
+
+The implementation also intersects the certified speed caps with a deterministic sidestep-feasibility
+bound for each remembered obstacle ahead: for hold-entry distance `D` and planned lateral
+displacement `dy`, it requires `v² ≤ a_lat D²/(4 dy)` (with no extra restriction when `dy = 0`).
+This is an explicit runtime safety reserve for the uncertified tracker; it does not expand the Lean
+certificate's assumptions.
 
 ## Verification recipe
 
@@ -156,11 +176,11 @@ Defaults below are the declarations in `teams/certline.py`.
 |---|---:|---|
 | `lat_frac` | `BOX_FRAC` | Fraction of `mu*g` assigned to the certified lateral budget. |
 | `acc_frac` | `BOX_FRAC` | Fraction of `mu*g` assigned to certified acceleration, bounded by vehicle maximum acceleration. |
-| `brk_frac` | `BOX_FRAC` | Fraction of `mu*g` assigned to certified braking, bounded by vehicle maximum deceleration. |
+| `brk_frac` | `0.50` | Fraction of `mu*g` assigned to certified braking, bounded by vehicle maximum deceleration. Below the friction box on purpose: braking is planned earlier and leaves lateral grip on corner entry. |
 | `horizon_r` | `DOMAIN_HORIZON_MM / 1000.0` | Terminal-horizon radius used by the longitudinal certificate. |
 | `gap_speed` | `1.0` | Enables the declared obstacle gap-speed rule. |
-| `gap_base` | `5.0` | Base speed in the gap-speed rule, in m/s. |
-| `gap_per_m` | `6.0` | Additional gap-rule speed per metre of free slack. |
+| `gap_base` | `7.0` | Base speed in the gap-speed rule, in m/s. |
+| `gap_per_m` | `8.0` | Additional gap-rule speed per metre of free slack. |
 | `hold` | `3.0` | Obstacle half-length of the lateral hold window, in metres. |
 | `ramp_in` | `18.0` | Lateral sidestep ramp-in length, in metres. |
 | `ramp_out` | `15.0` | Lateral sidestep ramp-out length, in metres. |
@@ -181,10 +201,19 @@ Defaults below are the declarations in `teams/certline.py`.
 
 | Key | Default | Meaning |
 |---|---:|---|
-| `k_ff` | `0.35` | Gain on curvature feed-forward steering. |
-| `k_pp` | `1.3` | Pure-pursuit gain. |
-| `k_psi` | `0.40` | Look-ahead path-tangent heading-error gain. |
-| `k_r` | `0.30` | Yaw-rate damping gain, in seconds. |
+| `trk_mode` | `1.0` | `1` = path-error state feedback; `0` = the legacy pure-pursuit blend (`k_ff` … `ld_ff`). |
+| `trk_omega` | `3.25` | Closed-loop natural frequency of the lateral error, in rad/s. |
+| `trk_zeta` | `0.9` | Closed-loop damping ratio. |
+| `trk_vmin` | `3.0` | Speed floor of the gain schedule, in m/s. |
+| `trk_lag` | `0.10` | Steering lag over which the errors are predicted, in seconds. |
+| `trk_lead` | `0.0` | Feed-forward curvature taken this far ahead of the projection, in seconds. |
+| `line_anchor` | `1.0` | `1` = start each plan on the previous plan (course frame); `0` = on the car. |
+| `thr_reserve` | `0.5` | Throttle cap `1 − (thr_reserve·|ay|/μg)²` (floor 0.15). |
+| `k_ff` | `0.35` | Legacy mode: gain on curvature feed-forward steering. |
+| `k_pp` | `1.3` | Legacy mode: pure-pursuit gain. |
+| `k_psi` | `0.40` | Legacy mode: look-ahead path-tangent heading-error gain. |
+| `k_r` | `0.30` | Legacy mode: yaw-rate damping gain, in seconds. |
+| `k_obs_track` | `1.50` | Legacy mode: obstacle-hold signed cross-track correction gain (uncertified tracker reserve). |
 | `k_v` | `0.50` | Speed-error gain added to certified acceleration, in 1/s. |
 | `ld_base` | `2.0` | Base pure-pursuit look-ahead, in metres. |
 | `ld_gain` | `0.30` | Look-ahead increase per m/s. |
@@ -207,8 +236,8 @@ Defaults below are the declarations in `teams/certline.py`.
 |---|---:|---|
 | `line_on` | `1.0` | Enables the minimum-curvature line; `0` disables the QP and starts the fallback from the certified plan. |
 | `line_shrink` | `0.15` | Shrinks each usable certified interval inward, in metres. |
-| `line_w_prev` | `3.0` | Stickiness weight for the previous published line. |
-| `line_w_center` | `0.002` | Weak centerline regularization weight. |
+| `line_w_prev` | `0.7` | Stickiness weight for the previous published line (compared in course coordinates). |
+| `line_w_center` | `0.001` | Weak centerline regularization weight. |
 | `line_ramp` | `0.35` | Maximum fallback offset change per preview station, in metres of offset. |
 | `line_iters` | `8` | Active-set iterations in `_box_qp`. |
 | `line_eps` | `1e-6` | Tikhonov regularization for the free QP block. |
