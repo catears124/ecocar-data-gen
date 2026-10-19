@@ -271,12 +271,13 @@ versus 8/12 for `heuristic` (42 off-course events); `approx` also finished
 12/12 but was slower and incurred more cone hits. These are simulator
 observations only and make no CARLA claim.
 
-An exact offline-controller selftest on the bicycle backend completed 4/5
-courses after explicit uncertified recovery: `hackathon_test`,
-`practice_basic`, `practice_obstacles`, and `practice_technical`; the
-`practice_loop` run timed out. The uncontended run's step p99 was approximately
-20--22 ms. A later run under CPU contention was slower and completed 2/5, so
-this is not a 50 ms guarantee.
+Exact offline-controller selftests on the bicycle backend were run repeatedly.
+Observed completions ranged from 2/5 to 4/5 courses after explicit
+uncertified recovery (the best run completed `hackathon_test`,
+`practice_basic`, `practice_obstacles`, and `practice_technical`; the latest
+run completed `practice_basic` and `practice_technical`). Step p99 ranged from
+about 20 ms to about 70 ms across runs, so exact offline mode is not a 50 ms
+guarantee and is not claimed to be real-time.
 
 Realtime mode uses a reduced horizon/grid. It is exact for that reduced
 declaration, but reports `realtime_exact=False`,
