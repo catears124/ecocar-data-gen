@@ -7,6 +7,7 @@ from typing import Iterable
 from autocross.api import Command, Observation, VehicleParams
 from autocross.datagen import cert, steer
 from autocross.datagen.expert import _pedals
+from autocross.certstatus import STATUS_LEAN_CHECKED, STATUS_SOLVER, status_debug
 
 from .model import (DEFAULT_ACC_INPUTS, DEFAULT_DELTAS, DEFAULT_HORIZON,
                     DEFAULT_OFFSETS, DEFAULT_PSIS, DEFAULT_STEER_INPUTS,
@@ -98,19 +99,24 @@ def model_from_observation(obs: Observation, vp: VehicleParams, *,
 
 
 def command_from_first(obs: Observation, vp: VehicleParams, model: ActModel,
-                       u: int, a: int) -> Command:
-    """Publish the certified first actuator request.
+                       u: int, a: int, *, status: int = STATUS_SOLVER) -> Command:
+    """Publish the first actuator request of the exact solver.
 
     ``u`` is the normalised steering command; ``a`` is requested acceleration in
     mm/s^2.  The pedal map is the same deterministic map used by the expert and
-    is the only actuation layer after the certified action.
+    is the only actuation layer after the chosen action.  ``status`` is the
+    caller's certification status for exactly this action (see
+    :mod:`autocross.certstatus`); it defaults to plain solver output, and
+    ``certified`` stays 0 at runtime.
     """
+    if status == STATUS_LEAN_CHECKED:
+        raise ValueError("runtime commands cannot carry STATUS_LEAN_CHECKED")
     steer_cmd = max(-1.0, min(1.0, u / 1000.0))
     a_mps2 = a / 1000.0
     throttle, brake = _pedals(a_mps2, vp, float(getattr(obs, "ay", 0.0)))
     return Command(steer=steer_cmd, throttle=throttle, brake=brake,
                    target_speed=math.sqrt(max(model.start.b, 0)) / 1000.0,
-                   debug={"planner": "actuator-exact", "certified": True,
+                   debug={"planner": "actuator-exact", **status_debug(status),
                           "u": float(u), "a_mm_s2": float(a),
                           "horizon": float(model.horizon),
                           "grid_offsets": float(len(model.offsets)),

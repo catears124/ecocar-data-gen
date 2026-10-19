@@ -81,7 +81,8 @@ def transition_arrays(model: ActModel, state: Dense, stage: int):
     change = np.clip(lag, -lim[:, None], lim[:, None])
     delta_n = snap_np(delta[:, None] + change, Del)
     den = model.wheelbase + model.understeer_num * b // model.understeer_den
-    kappa = delta_n * 1000 // den[:, None]
+    den_ok = den > 0
+    kappa = delta_n * 1000 // np.where(den_ok, den, 1)[:, None]
     psi_n = snap_np(psi[:, None] + (kappa - kroad) * ds // 1000, P)
     d_n = snap_np(d[:, None] + ((psi[:, None] + psi_n) // 2) * ds // 1_000_000, D)
     b_cont = b[:, None] + 2 * A[None, :] * ds
@@ -104,7 +105,7 @@ def transition_arrays(model: ActModel, state: Dense, stage: int):
     # constraints
     lo = model.lo(stage + 1)
     hi = model.hi(stage + 1)
-    valid = (b_cont >= 0)
+    valid = (b_cont >= 0) & den_ok[:, None]
     valid &= (d_n >= lo) & (d_n <= hi)
     valid &= (d_n + d[:, None]) // 2 >= lo
     valid &= (d_n + d[:, None]) // 2 <= hi
@@ -113,11 +114,12 @@ def transition_arrays(model: ActModel, state: Dense, stage: int):
     for _, lmin, lmax in model.obstacles_at(stage + 1):
         for x in (d_n, (d_n + d[:, None]) // 2):
             valid &= (x <= lmin - half) | (x >= lmax + half)
-    # lateral acceleration and friction ellipse
+    # lateral acceleration (exact, before flooring, as in model.action_ok)
+    # and friction ellipse (on the floored lateral acceleration)
     kappa_path = kroad + (psi_n - psi[:, None]) * 1000 // ds
-    lat = b_n * np.abs(kappa_path) // 1_000_000_000
     a_lat = int(model.lon["a_lat"])
-    valid &= lat <= a_lat
+    valid &= b_n * np.abs(kappa_path) <= a_lat * 1_000_000_000
+    lat = b_n * np.abs(kappa_path) // 1_000_000_000
     acc = A[None, :]
     a_long = np.where(acc >= 0, int(model.lon["a_acc"]), int(model.lon["a_brk"]))
     valid &= (lat * a_long) ** 2 + (acc * a_lat) ** 2 <= (a_lat * a_long) ** 2
@@ -161,6 +163,67 @@ def _decode_index(model: ActModel, idx: int) -> ActState:
     return ActState(0, model.offsets[di], model.psis[pi], model.speeds[bi], model.deltas[deli])
 
 
+INT64_SAFE = 2 ** 62
+
+
+def dense_violations(model: ActModel) -> list[str]:
+    """Preconditions under which the int64 dense solvers equal the scalar model.
+
+    The scalar model uses unbounded Python integers; ``solve`` and
+    ``solve_numba`` use int64 over the whole dense grid.  Every intermediate
+    product of the transition/cost is bounded here by the declared magnitudes,
+    and every value sum must stay below ``INF // 2``.  The dense grid also
+    contains unreachable states, so divisions the scalar model only performs on
+    reachable states (by ``tau``, by the station gap, by ``sqrt(b)+sqrt(b')``)
+    must be well defined everywhere.  A non-empty result means: do not run a
+    dense solver on this instance.
+    """
+    bad: list[str] = []
+    H = model.horizon
+    gaps = [model.gap(i) for i in range(H)]
+    if not gaps or min(gaps) <= 0:
+        bad.append("station gaps must be positive")
+        return bad
+    if model.tau <= 0:
+        bad.append("steer_tau_us must be positive")
+    if min(model.speeds) <= 0 or model.start.b < 0:
+        bad.append("declared speeds must be positive")
+    G = max(gaps)
+    Bm = max(max(model.speeds), model.start.b)
+    Dl = max(max(abs(x) for x in model.deltas), abs(model.start.delta))
+    P = max(max(abs(x) for x in model.psis), abs(model.start.psi))
+    Dm = max(max(abs(x) for x in model.offsets), abs(model.start.d))
+    K = max(abs(x) for x in model.k[:H + 1])
+    Am = max(abs(x) for x in model.acc_inputs)
+    T = max(abs(x) for x in model.steer_inputs) * abs(model.max_steer) // 1000 + 1
+    RD = max([abs(x) for x in model.ref_d] or [0])
+    RP = max([abs(x) for x in model.ref_psi] or [0])
+    a_lat = abs(int(model.lon["a_lat"]))
+    a_long = max(abs(int(model.lon["a_acc"])), abs(int(model.lon["a_brk"])))
+    terms = {
+        "ds*1e6": G * 1_000_000,
+        "steer lag": (T + Dl) * max(model.tau, 1),
+        "steer rate": abs(model.steer_rate) * G * 1000,
+        "understeer": abs(model.understeer_num) * Bm,
+        "kappa": Dl * 1000,
+        "heading step": (Dl * 1000 + K) * G,
+        "offset step": P * G,
+        "speed step": Bm + 2 * Am * G,
+        "path curvature": Bm * (K + 2000 * P),
+        "a_lat*1e9": a_lat * 1_000_000_000,
+        "friction ellipse": 2 * (a_lat * a_long) ** 2 + (Am * a_lat) ** 2,
+    }
+    for name, v in terms.items():
+        if v >= INT64_SAFE:
+            bad.append(name)
+    stage = (COST_TIME_WEIGHT * 2 * G * 1_000_000 + 2 * Dl // 1000
+             + D_WEIGHT * (Dm + RD) + PSI_WEIGHT * (P + RP) // 100)
+    total = H * stage + COST_TIME_WEIGHT * abs(model.terminal_distance) * 1_000_000
+    if total >= INF // 2:
+        bad.append("value sum")
+    return bad
+
+
 def solve(model: ActModel) -> tuple[ActState | None, int | None, tuple[int, int] | None, dict]:
     """Return (first successor, optimal cost, first (steer,accel) action, diagnostics).
 
@@ -168,6 +231,9 @@ def solve(model: ActModel) -> tuple[ActState | None, int | None, tuple[int, int]
     deterministic optimal plan.  They are the raw material for a proof-carrying
     certificate; the controller itself only uses the first action.
     """
+    bad = dense_violations(model)
+    if bad:
+        raise OverflowError("instance outside the int64 dense-solver domain: " + ", ".join(bad))
     state = dense_grid(model)
     V = terminal_values(model, state)
     values: list[np.ndarray | None] = [None] * (model.horizon + 1)
@@ -176,8 +242,8 @@ def solve(model: ActModel) -> tuple[ActState | None, int | None, tuple[int, int]
     values[model.horizon] = V.copy()
     for stage in range(model.horizon - 1, 0, -1):
         nxt, cost, valid = transition_arrays(model, state, stage)
-        cand = cost + V[nxt]
-        cand = np.where(valid, cand, INF)
+        nv = V[nxt]
+        cand = np.where(valid & (nv < INF), cost + nv, INF)
         best = cand.min(axis=1)
         arg = cand.argmin(axis=1)
         V = best.astype(np.int64)
@@ -197,7 +263,7 @@ def solve(model: ActModel) -> tuple[ActState | None, int | None, tuple[int, int]
                 continue
             idx = _dense_index(model, t)
             v = values[1][idx]  # type: ignore[index]
-            if v >= INF // 2:
+            if v >= INF:
                 continue
             c = model.action_cost(s0, t) + int(v)
             if best_cost is None or c < best_cost:
@@ -206,26 +272,31 @@ def solve(model: ActModel) -> tuple[ActState | None, int | None, tuple[int, int]
                 best_t = t
                 best_idx = idx
     # Reconstruct the deterministic optimal plan (states at stations 0..H).
-    plan: list[ActState] = [s0]
-    if best_t is not None and best_idx is not None:
+    na = len(model.acc_inputs)
+    plan: list[ActState] = [s0] if best_cost is not None else []
+    plan_actions: list[tuple[int, int]] = []
+    if best_t is not None and best_idx is not None and best_action is not None:
         plan.append(best_t)
+        plan_actions.append(best_action)
         cur = best_t
         for stage in range(1, model.horizon):
             arg = args[stage]
             nxt = nxts[stage]
             if arg is None or nxt is None:
                 plan = []
+                plan_actions = []
                 break
             idx = _dense_index(model, cur)
             ai = int(arg[idx])
             nxt_idx = int(nxt[idx, ai])
+            plan_actions.append((model.steer_inputs[ai // na], model.acc_inputs[ai % na]))
             cur = _decode_index(model, nxt_idx)
             cur = ActState(stage + 1, cur.d, cur.psi, cur.b, cur.delta)
             plan.append(cur)
     diag = {"states": state.n, "actions": len(model.steer_inputs) * len(model.acc_inputs),
             "feasible": best_cost is not None, "first": best_t,
             "values": values, "args": args, "nxts": nxts,
-            "grid_shape": state.shape, "plan": plan,
+            "grid_shape": state.shape, "plan": plan, "plan_actions": plan_actions,
             "first_index": best_idx}
     return best_t, best_cost, best_action, diag
 
@@ -301,7 +372,7 @@ def solve_sparse(model: ActModel):
         cand = c + nv
         if best is None or cand < best:
             best = cand; besta = (u, a); bestt = t
-    plan: list[ActState] = [s0]
+    plan: list[ActState] = [s0] if best is not None else []
     plan_actions: list[tuple[int, int]] = []
     if bestt is not None and besta is not None:
         plan.append(bestt); plan_actions.append(besta)

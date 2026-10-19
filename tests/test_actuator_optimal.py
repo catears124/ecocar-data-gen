@@ -7,7 +7,7 @@ import random
 import pytest
 
 from autocross.actuator.certificate import (
-    certificate_from_diag, check_certificate, corrupt,
+    CORRUPTIONS, certificate_from_diag, check_certificate, corrupt,
 )
 from autocross.actuator.model import ActModel, ActState, COST_TIME_WEIGHT, isqrt
 from autocross.actuator.solver import assert_vector_parity, solve, solve_sparse
@@ -84,7 +84,7 @@ def test_adversarial_mutations_are_rejected():
     _b, cost, a, d = solve_sparse(m)
     cert = certificate_from_diag(m, d, claimed=cost, first_action=a)
     assert check_certificate(cert)["ok"]
-    for kind in ("value", "first_action", "plan_cost", "plan_state", "successor", "sha"):
+    for kind in CORRUPTIONS:
         assert not check_certificate(corrupt(cert, kind))["ok"], kind
 
 

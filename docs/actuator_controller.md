@@ -5,20 +5,40 @@ optimality claim. It is deliberately narrower than "optimal driving".
 
 ## Claim
 
-When the controller returns `certified = true`, it executed the first action of a
-plan that is globally optimal, among all plans of the **declared finite actuator
-model**, for the declared integer objective. The accompanying certificate is
-accepted by both:
+A step at certification status `STATUS_LEAN_CHECKED` (`certified = 1`) executed
+the first action of a plan that is globally optimal, among all plans of the
+**declared finite actuator model**, for the declared integer objective: its
+certificate is accepted by both
 
 * `autocross.actuator.certificate.check_certificate` (independent Python
   re-encoding and Bellman recomputation), and
 * the compiled Lean checker `actuatorcheck`, whose acceptance implies
   `Corpus.Actuator.certificate_optimal` (kernel-checked).
 
-The claim is conditional on the certificate belonging to the same observation,
-model instance, objective, and first action that the controller executed. The
-controller binds those fields when `emit_certificates` is enabled; a certificate
-is not evidence for an unrelated step.
+Every command carries the numeric ladder of `autocross/certstatus.py` in
+`Command.debug` (`status`, `certified`, `fallback_reason`; the harness drops
+non-numeric debug values):
+
+| `status` | meaning |
+|---|---|
+| 0 `STATUS_FALLBACK` | `certline` fallback or brake; `fallback_reason` names why |
+| 1 `STATUS_SOLVER` | runtime exact-solver output for the declared instance, no checked certificate |
+| 2 `STATUS_PY_CHECKED` | with `emit_certificates`: a certificate built from the same `ActModel` the solver solved, with `firstAction` = executed `(u, a)` and claimed = runtime optimum, accepted by the Python checker at runtime |
+| 3 `STATUS_LEAN_CHECKED` | assigned only offline (`tools/actuator_certificate.py`) after `actuatorcheck` accepts the bound certificate |
+
+Runtime never sets `certified = 1`: the controller sandbox forbids subprocesses
+and native code. Exact steps also publish `cert_sha52` and `instance_sha52`
+(first 52 bits of the certificate / canonical-instance SHA-256) so an offline
+audit can bind a certificate to the executed step. If the certificate for the
+executed action cannot be built or is rejected, the step falls back with
+`fallback_reason = certificate_mismatch`.
+
+`solver_code` reports the solver that actually ran: 0 numpy, 1 numba, 2 numpy
+after a numba error. The sandbox denies `ctypes.dlopen`, so numba cannot load
+inside the sandboxed controller and real runs report 0; the numba kernel is
+used outside the sandbox (offline audit, tests) and is differentially tested
+against the scalar model, the numpy solver and the sparse solver
+(`tests/test_actuator_differential.py`).
 
 It is **not** a claim of continuous-vehicle, CARLA, whole-course, or
 global-physical optimality. It is also not a claim about fallback commands.
@@ -74,25 +94,30 @@ The JSON certificate contains:
 * `plan`, `planActions`, `firstAction`, `claimed`, `planCost`;
 * `certificate_sha256`.
 
-The Python checker rejects a wrong hash, malformed tables, a non-singleton start
-table, duplicate rows, successors outside the next table, wrong terminal values,
-any Bellman row mismatch, an inadmissible first action or plan step, a wrong plan
-cost, and a claimed value on an infeasible instance. The Lean checker recomputes
-the same recurrence; the SHA and metadata are not part of its theorem.
+The Python checker rejects a wrong hash, an instance outside the certificate
+domain (start offset/heading/steering angle off the declared grids, unsorted
+grids, non-positive gaps/speeds/`tau`; identical to Lean's `domainOK`), malformed
+tables, rows off the declared grids, a non-singleton start table, duplicate
+rows, successors outside the next table, wrong terminal values, any Bellman row
+mismatch, an inadmissible first action or plan step, a wrong plan cost, and a
+claimed value on an infeasible instance. The Lean checker recomputes the same
+recurrence; the SHA and metadata are not part of its theorem.
 
 ## Reproduce
 
 ```bash
-python -m pytest -q tests/test_actuator_optimal.py tests/test_actuator_parity.py
+cd lean && lake build actuatorcheck && cd ..
+REQUIRE_LEAN=1 REQUIRE_VERIFICATION=1 python -m pytest -q \
+  tests/test_actuator_optimal.py tests/test_actuator_parity.py tests/test_actuator_differential.py
 python tools/actuator_certificate.py --track tracks/practice_basic.yaml \
-  --station 20 --speed 8 --out tmp/actuator_certificate.json
-powershell -NoProfile -Command \
-  "& '.\lean\.lake\build\bin\actuatorcheck.exe' 'tmp\actuator_certificate.json'"
+  --station 20 --speed 8 --out tmp/actuator_certificates --require-lean --corrupt
 ```
 
-The demo prints the Python report, the first successor/action, and the Lean
-checker's JSON. The real certificate used on `practice_basic` at station 20 has
-`claimed = 1222912000`, `horizon = 4`, and is accepted by both checkers.
+The audit solves the observation with the runtime solver, builds the certificate
+bound to the executed first action, and requires acceptance by both checkers
+(and, with `--corrupt`, rejection of every mutation in
+`certificate.CORRUPTIONS`). The real certificate on `practice_basic` at station
+20 has `claimed = 1222912000`, `horizon = 4`, first action `(0, 5200)`.
 
 ## Controller modes and measurements
 
@@ -132,7 +157,7 @@ offline verifier and is not run inside the control loop.
 `performance_guard: true` falls back to `certline` whenever the exact plan's
 requested acceleration is more than 0.4 m/s² below the baseline's. It recovers
 the baseline lap times (mean 71.5/75 on the same five courses, zero cones/off),
-but it reduces certified exact steps to ~2% of control steps. That mode is a
+but it reduces exact steps to ~2% of control steps. That mode is a
 performance envelope around `certline`, not evidence that the actuator
 controller is driving optimally; it is off by default and is reported only as a
 measured trade-off.

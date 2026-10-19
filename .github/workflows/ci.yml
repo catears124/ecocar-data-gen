@@ -3,25 +3,43 @@ name: ci
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 jobs:
   verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 120
     env:
-      REQUIRE_LEAN: "1"          # a missing Lean toolchain FAILS the Lean tests instead of skipping them
+      REQUIRE_LEAN: "1"          # a missing Lean toolchain or checker FAILS the Lean tests instead of skipping them
+      REQUIRE_VERIFICATION: "1"  # any skipped @pytest.mark.verification test FAILS the session (tests/conftest.py)
       PYTHONHASHSEED: "0"
+      # Compiled Lean certificate checkers.  Adding a checker is a one-line change here.
+      LEAN_CHECKERS: >-
+        teachercheck
+        actuatorcheck
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"   # pyproject: requires-python >=3.10,<3.13
 
-      - name: Python dependencies
+      - name: Python dependencies (incl. numba and pytest)
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt pytest
+          python -m pip install -e . --no-deps
+          python -c "import numba, numpy; print('numba', numba.__version__, 'numpy', numpy.__version__)"
+
+      - name: Cache Lean toolchain and Lake build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.elan/toolchains
+            lean/.lake
+          key: ${{ runner.os }}-lean-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json', 'lean/lakefile.*', 'lean/**/*.lean') }}
+          restore-keys: |
+            ${{ runner.os }}-lean-
 
       - name: Lean toolchain (pinned by lean/lean-toolchain)
         run: |
@@ -33,6 +51,14 @@ jobs:
         working-directory: lean
         run: lake build
 
+      - name: Build compiled Lean checkers
+        working-directory: lean
+        run: |
+          lake build $LEAN_CHECKERS
+          for exe in $LEAN_CHECKERS; do
+            test -x ".lake/build/bin/$exe" || { echo "missing checker $exe"; exit 1; }
+          done
+
       - name: Lean axiom audit (release gate)
         run: |
           python - <<'EOF'
@@ -43,8 +69,23 @@ jobs:
           sys.exit(0 if r["ok"] else 1)
           EOF
 
+      - name: Actuator verification tests (solver differential + Python/Lean checkers, no skips)
+        run: >-
+          python -m pytest -q -p no:cacheprovider -rs
+          tests/test_actuator_optimal.py tests/test_actuator_parity.py
+          tests/test_actuator_differential.py
+
+      - name: Actuator offline audit (real certificates accepted by Lean, corruptions rejected)
+        run: >-
+          python tools/actuator_certificate.py --track tracks/practice_basic.yaml
+          --station 20 --station 35 --station 60 --speed 8
+          --out /tmp/actuator-certificates --require-lean --corrupt
+
       - name: Python tests (incl. adversarial certificate-integrity tests)
-        run: python -m pytest -q -p no:cacheprovider
+        run: >-
+          python -m pytest -q -p no:cacheprovider -rs
+          --ignore=tests/test_actuator_optimal.py --ignore=tests/test_actuator_parity.py
+          --ignore=tests/test_actuator_differential.py
 
       - name: Deterministic manifest
         run: |
@@ -65,6 +106,34 @@ jobs:
       - name: Dataset report
         run: python -m autocross data-report /tmp/smoke
 
+      - name: Generate bounded optimal-teacher smoke corpus
+        run: python -m autocross.datagen.optimal_corpus --out /tmp/optimal-smoke --smoke
+
+      - name: Require every generated teacher certificate to be accepted
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          examples = Path("/tmp/optimal-smoke") / "examples.jsonl"
+          if not examples.is_file():
+              raise SystemExit(f"smoke examples are missing: {examples}")
+          fields = []
+          with examples.open(encoding="utf-8") as stream:
+              for line_number, line in enumerate(stream, 1):
+                  if not line.strip():
+                      continue
+                  label = json.loads(line).get("label", {})
+                  if label.get("certificate_path") is not None:
+                      fields.append((f"{examples}:{line_number}", label.get("certificate_ok")))
+          if not fields:
+              raise SystemExit("smoke corpus contains no generated certificates")
+          bad = [(path, value) for path, value in fields if value is not True]
+          if bad:
+              raise SystemExit(f"certificate_ok was not true: {bad}")
+          print(f"validated {len(fields)} certificate_ok fields")
+          PY
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -73,3 +142,4 @@ jobs:
             /tmp/smoke/validation_report.json
             /tmp/smoke/lean_report.json
             /tmp/smoke/dataset_report.json
+            /tmp/actuator-certificates/
