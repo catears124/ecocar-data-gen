@@ -122,3 +122,37 @@ following trust boundaries:
 - **Simulator metrics.** Cone-hit, off-course, completion, and timing metrics
   are observations from the bicycle simulator runs. They are not safety proofs,
   CARLA results, or proofs of continuous-model optimality.
+
+## Actuator controller trust boundary
+
+The actuator certificate and `Corpus.Actuator.certificate_optimal` add a finite
+actuator model; they do not remove these boundaries:
+
+- **Declared actuator model.** The theorem covers the integer state
+  `(station, d, psi, b, delta)`, the declared grids, the discrete action set,
+  nearest-grid snapping, the understeer denominator, the friction ellipse, the
+  corridor/obstacle checks, the finite horizon, the terminal set, the braking
+  envelope, and the integer objective. It does not cover continuous steering,
+  continuous acceleration, tyre slip, load transfer, actuator delay variation,
+  or a different controller.
+- **Fast-reference prior.** `ref_d`/`ref_psi` are part of the encoded instance.
+  `certline`'s path is a heuristic input; optimality is for the declared
+  reference-tracking objective, not for physical minimum time.
+- **Quantisation and perception.** The model consumes quantised preview data.
+  Perception errors, obstacle extents, and the mapping from a raw observation to
+  the encoded instance are outside the theorem.
+- **Certificate-to-execution binding.** The Python controller can generate and
+  check a certificate for the exact model it solved (`emit_certificates`). The
+  Lean theorem applies to the accepted certificate; it does not prove that an
+  arbitrary runtime command, fallback command, pedal map, or simulator tick
+  executed the certified action. The real-time controller normally generates
+  certificates offline, not inside the 50 ms loop.
+- **Fallback is not certified.** `certline-fallback`, `actuator-recovery`, and any
+  no-plan branch are explicit uncertified modes. They are not covered by
+  `Corpus.Actuator`.
+- **Realtime reduced declaration.** The deployed horizon/grid is smaller than an
+  offline exact declaration. The certificate proves the reduced model actually
+  encoded for that step, not a longer-horizon or finer-grid model.
+- **Checker execution.** The Lean kernel and standard axioms are trusted;
+  `actuatorcheck` parsing and invocation are an engineering boundary, as for
+  `teachercheck`.

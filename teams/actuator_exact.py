@@ -42,6 +42,8 @@ class ActuatorExactController(Controller):
         self.acc_inputs = cfg.get("acc_inputs", None)
         self.terminal_distance = int(cfg.get("terminal_distance", 8000))
         self.steer_tau_s = float(cfg.get("steer_tau_s", 0.06))
+        self.emit_certificates = bool(cfg.get("emit_certificates", False))
+        self._certificate = None
         self._last = None
         self._solver_name = "numpy"
         self._solver_error = ""
@@ -68,13 +70,14 @@ class ActuatorExactController(Controller):
                           timing_started=False, road=road)
         self._plan(obs)
 
-    def _plan(self, obs: Observation, horizon: int | None = None):
+    def _plan(self, obs: Observation, horizon: int | None = None,
+              ref_d=None, ref_psi=None):
         m = model_from_observation(
             obs, self.vehicle, horizon=self.horizon if horizon is None else horizon,
             offsets=self.offsets, psis=self.psis, speeds=self.speeds,
             deltas=self.deltas, steer_inputs=self.steer_inputs,
             acc_inputs=self.acc_inputs, terminal_distance=self.terminal_distance,
-            steer_tau_s=self.steer_tau_s)
+            steer_tau_s=self.steer_tau_s, ref_d=ref_d, ref_psi=ref_psi)
         if m is None:
             return None
         t0 = time.perf_counter()
@@ -90,49 +93,87 @@ class ActuatorExactController(Controller):
             first_t, cost, first_action, diag = solve(m)
             self._solver_name = "numpy"
         elapsed = (time.perf_counter() - t0) * 1000.0
+        if self.emit_certificates and first_action is not None:
+            try:
+                from autocross.actuator.certificate import (
+                    certificate_from_diag, check_certificate,
+                )
+                from autocross.actuator.solver import solve_sparse
+                _bt, scost, saction, sdiag = solve_sparse(m)
+                cert = certificate_from_diag(m, sdiag, claimed=scost, first_action=saction)
+                rep = check_certificate(cert)
+                self._certificate = cert if rep.get("ok") and scost == cost else None
+            except Exception as exc:
+                self._solver_error = f"certificate: {type(exc).__name__}: {exc}"
+                self._certificate = None
+        else:
+            self._certificate = None
         return m, first_t, cost, first_action, diag, elapsed
+
+    @staticmethod
+    def _reference(road: RoadModel, cmd: Command):
+        """Certline's published racing line as a lateral/heading prior.
+
+        The exact DP still chooses the actuator sequence; this prior only
+        changes the declared objective (tracking a fast reference) and is
+        encoded in the certificate instance.  It is not a tracking controller.
+        """
+        try:
+            cl = np.asarray(road.preview_centerline, dtype=float)
+            path = getattr(cmd, "path", None)
+            if path is None or cl.ndim != 2 or cl.shape[0] < 2:
+                return None, None
+            path = np.asarray(path, dtype=float)
+            if path.shape != cl.shape:
+                return None, None
+            hd = np.arctan2(np.gradient(cl[:, 1]), np.gradient(cl[:, 0]))
+            nrm = np.column_stack((-np.sin(hd), np.cos(hd)))
+            off_mm = np.sum((path - cl) * nrm, axis=1) * 1000.0
+            s = np.asarray(road.preview_s, dtype=float)
+            if s.size != off_mm.size or np.any(np.diff(s) <= 0):
+                psi = np.zeros_like(off_mm)
+            else:
+                psi = np.gradient(off_mm, s) * 1000.0
+            ref_d = tuple(int(round(max(-1500.0, min(1500.0, x)))) for x in off_mm)
+            ref_psi = tuple(int(round(max(-100000.0, min(100000.0, x)))) for x in psi)
+            return ref_d, ref_psi
+        except Exception:
+            return None, None
 
     def step(self, obs: Observation) -> Command:
         road = getattr(obs, "road", None)
         if road is None or not getattr(road, "valid", False) or len(getattr(road, "preview_s", [])) < 3:
             return Command(brake=1.0, debug={"planner": "actuator-exact", "certified": False,
                                              "fallback_reason": "invalid/short preview"})
+        base = self._fallback.step(obs)
+        ref_d, ref_psi = self._reference(road, base)
         # Safety governor: outside the declared actuator grid, or with a large
         # lateral/heading error, use the certified-racing-line baseline.  This
         # is an explicit fallback; it is never labelled actuator-optimal.
         lat = abs(float(getattr(road, "lateral_offset", 0.0)))
         head = abs(float(getattr(road, "heading_error", 0.0)))
-        if lat > 0.25 or head > 0.025:
-            cmd = self._fallback.step(obs)
-            cmd.debug.update({"planner": "certline-fallback", "certified": False,
-                              "fallback_reason": "outside actuator safety envelope"})
-            return cmd
-        result = self._plan(obs)
+        obstacles = list(getattr(road, "obstacles", []) or [])
+        near_obstacle = any(float(getattr(o, "distance", 1e9)) < 25.0 for o in obstacles)
+        prev_k = np.asarray(getattr(road, "preview_curvature", []), dtype=float)
+        tight = bool(prev_k.size and float(np.max(np.abs(prev_k[:20]))) > 0.06)
+        if lat > 0.10 or head > 0.010 or near_obstacle or tight:
+            base.debug.update({"planner": "certline-fallback", "certified": False,
+                               "fallback_reason": ("obstacle envelope" if near_obstacle else
+                                                   "tight curvature envelope" if tight else
+                                                   "outside actuator safety envelope")})
+            return base
+        result = self._plan(obs, ref_d=ref_d, ref_psi=ref_psi)
         if result is None or result[3] is None:
-            # Uncertified centreline recovery, explicitly labelled.
-            path = np.asarray(road.preview_centerline, dtype=float)
-            s = np.asarray(road.preview_s, dtype=float)
-            try:
-                from autocross.datagen.expert import _pursuit
-                steer_cmd, _ld = _pursuit(path, s, max(float(obs.speed), 0.0), self.vehicle)
-            except Exception:
-                steer_cmd = 0.0
-            target = 3.0
-            err = target - max(float(obs.speed), 0.0)
-            a = max(-self.vehicle.max_decel, min(self.vehicle.max_accel, 1.5 * err))
-            if a >= 0:
-                throttle = min(a / self.vehicle.max_accel, 1.0); brake = 0.0
-            else:
-                throttle = 0.0; brake = min((-a) / self.vehicle.max_decel, 1.0)
-            return Command(steer=steer_cmd, throttle=throttle, brake=brake,
-                           path=path, path_frame="vehicle", target_speed=target,
-                           debug={"planner": "actuator-recovery", "certified": False,
-                                  "fallback_reason": "no admissible exact actuator plan"})
+            base.debug.update({"planner": "certline-fallback", "certified": False,
+                               "fallback_reason": "no admissible exact actuator plan"})
+            return base
         m, t, cost, (u, a), diag, elapsed = result
         cmd = command_from_first(obs, self.vehicle, m, u, a)
         cmd.debug.update({"cost": float(cost) if cost is not None else -1.0,
                           "solver_ms": float(elapsed), "states": float(diag["states"]),
                           "actions": float(diag["actions"]),
                           "solver_code": 1.0 if self._solver_name == "numba" else (2.0 if self._solver_name == "numpy-fallback" else 0.0),
-                          "solver_error_len": float(len(self._solver_error))})
+                          "solver_error_len": float(len(self._solver_error)),
+                          "ref_used": 1.0 if ref_d is not None else 0.0,
+                          "certificate_ok": 1.0 if self._certificate is not None else 0.0})
         return cmd

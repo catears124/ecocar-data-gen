@@ -152,6 +152,39 @@ A certificate is therefore a proof object plus enough input to replay the proof 
 
 Python/Lean parity is a computationally checked engineering property: the quantisation and JSON schema are shared by construction and `lean/TeacherCertProbe.json` is accepted by the compiled Lean checker. The formal theorem applies after the Lean checker has accepted the Lean representation; it does not magically prove that an unrelated floating-point or physical implementation has the same semantics. Reproduction should build the Lean target and run the checker on the released probe/certificates; the paper reports no additional checker run beyond artifacts present in the repository.
 
+### 4.1 Direct actuator-space extension
+
+The teacher above optimises an offset/speed lattice and leaves tracking outside
+the theorem. A second finite model removes that layer: the state is
+`(station, d, psi, b, delta)` and the action is a normalised steering request
+plus an acceleration request. The transition is integer, path-relative and
+rate/lag-limited; it includes understeer, midpoint integration, corridor and
+inflated-obstacle checks, a lateral-acceleration bound, and a friction ellipse.
+The objective adds traversal time, steering effort, and optional tracking of a
+fast reference path. `autocross/actuator/solver.py` solves this model exactly,
+and `autocross/actuator/certificate.py` serialises the reachable tables, optimal
+values, plan, actions, first action, claimed value and model instance.
+
+The Lean module `Corpus.Actuator` mirrors the integer model and proves the same
+sparse-table soundness result (`checkCert_sound`, `certificate_value`,
+`certificate_lower_bound`, `certificate_plan`, `certificate_infeasible`,
+`certificate_optimal`). The compiled `actuatorcheck` accepts a real H=4
+observation certificate and rejects corrupt values, actions, plans and
+successors. The theorem therefore says: an accepted certificate's first action
+is optimal for **that declared finite actuator instance and objective**. It does
+not say that the bicycle backend, CARLA, or a continuous vehicle follows the
+model, and it does not cover the controller's explicit `certline` fallback.
+
+In closed loop the controller executes the certified first action only while the
+observation remains inside the actuator envelope; outside it, near obstacles, or
+in tight curvature it falls back and labels the command uncertified. On the five
+public bicycle courses the hybrid finishes every course with zero cones and zero
+off-course events and 65.7/75 mean technical points, versus 69.9/75 for the
+existing `certline` baseline. The exact DP is exact for the declared H=4 grid,
+but exact steps are a minority of control steps; this limitation is reported
+rather than hidden. The result is a proof-carrying actuator optimizer, not yet a
+faster whole-course controller.
+
 ## 5. Dataset and BC methodology
 
 ### 5.1 Corpus schema

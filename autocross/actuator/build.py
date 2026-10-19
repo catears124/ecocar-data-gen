@@ -42,7 +42,9 @@ def model_from_observation(obs: Observation, vp: VehicleParams, *,
                            steer_inputs: Iterable[int] | None = None,
                            acc_inputs: Iterable[int] | None = None,
                            terminal_distance: int = DEFAULT_TERMINAL_DISTANCE_MM,
-                           steer_tau_s: float = 0.06) -> ActModel | None:
+                           steer_tau_s: float = 0.06,
+                           ref_d: Iterable[int] | None = None,
+                           ref_psi: Iterable[int] | None = None) -> ActModel | None:
     road = getattr(obs, "road", None)
     if road is None or not getattr(road, "valid", False):
         return None
@@ -58,7 +60,7 @@ def model_from_observation(obs: Observation, vp: VehicleParams, *,
         return None
     offs = _grid(offsets, DEFAULT_OFFSETS)
     ps = _grid(psis, DEFAULT_PSIS)
-    sp = _grid(speeds, tuple((v * 1000) ** 2 for v in range(3, 12)))
+    sp = _grid(speeds, tuple((v * 1000) ** 2 for v in range(3, 16)))
     dl = _grid(deltas, DEFAULT_DELTAS)
     ui = _grid(steer_inputs, DEFAULT_STEER_INPUTS)
     ai = _grid(acc_inputs, DEFAULT_ACC_INPUTS)
@@ -90,7 +92,9 @@ def model_from_observation(obs: Observation, vp: VehicleParams, *,
     return ActModel(consts=c, q={"base": base, "lat": abs(d0)}, offsets=offs,
                     psis=ps, speeds=sp, deltas=dl, steer_inputs=ui, acc_inputs=ai,
                     horizon=h, start=ActState(0, d0, psi0, b0, delta0),
-                    terminal_distance=int(terminal_distance))
+                    terminal_distance=int(terminal_distance),
+                    ref_d=tuple(int(x) for x in (ref_d or ())),
+                    ref_psi=tuple(int(x) for x in (ref_psi or ())))
 
 
 def command_from_first(obs: Observation, vp: VehicleParams, model: ActModel,

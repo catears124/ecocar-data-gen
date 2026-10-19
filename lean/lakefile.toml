@@ -12,3 +12,7 @@ root = "Main"
 [[lean_exe]]
 name = "teachercheck"
 root = "TeacherCheck"
+
+[[lean_exe]]
+name = "actuatorcheck"
+root = "ActuatorCheck"

@@ -95,9 +95,11 @@ def transition_arrays(model: ActModel, state: Dense, stage: int):
     # cost vector from roots: cdiv(2*ds*1e6, root_b + root_w)
     denom = root[:, None] + state.root_grid[bi]
     denom = np.maximum(denom, 1)
+    rd = int(model.ref_d[stage + 1]) if len(model.ref_d) > stage + 1 else 0
+    rp = int(model.ref_psi[stage + 1]) if len(model.ref_psi) > stage + 1 else 0
     cost = (COST_TIME_WEIGHT * (-((-(2 * ds * 1_000_000)) // denom))
             + np.abs(delta_n - delta[:, None]) // 1000
-            + D_WEIGHT * np.abs(d_n) + PSI_WEIGHT * np.abs(psi_n) // 100)
+            + D_WEIGHT * np.abs(d_n - rd) + PSI_WEIGHT * np.abs(psi_n - rp) // 100)
 
     # constraints
     lo = model.lo(stage + 1)
@@ -130,10 +132,11 @@ def transition_arrays(model: ActModel, state: Dense, stage: int):
 
 def terminal_values(model: ActModel, state: Dense) -> np.ndarray:
     v = np.full(state.n, INF, dtype=np.int64)
+    cap = model.terminal_cap()
     for k in range(state.n):
         s = ActState(model.horizon, int(state.d[k]), int(state.psi[k]),
                      int(state.b[k]), int(state.delta[k]))
-        c = model.terminal_cost(s)
+        c = model.terminal_cost(s, cap=cap)
         if c is not None:
             v[k] = COST_TIME_WEIGHT * c
     return v

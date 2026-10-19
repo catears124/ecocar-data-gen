@@ -37,11 +37,11 @@ D_WEIGHT = 5000
 PSI_WEIGHT = 5000
 
 # Declared finite grids.  They are model choices, deliberately exposed.
-DEFAULT_OFFSETS = tuple(range(-1000, 1001, 250))          # 9
+DEFAULT_OFFSETS = tuple(range(-750, 751, 250))            # 7
 DEFAULT_PSIS = tuple(range(-80_000, 80_001, 40_000))     # 5 (0.04 rad)
-DEFAULT_DELTAS = tuple(range(-400_000, 400_001, 200_000))  # 5
-DEFAULT_STEER_INPUTS = (-1000, -500, 0, 500, 1000)
-DEFAULT_ACC_INPUTS = (-6000, -3000, 0, 3000, 5000)
+DEFAULT_DELTAS = (-300_000, 0, 300_000)                    # 3
+DEFAULT_STEER_INPUTS = (-1000, 0, 1000)
+DEFAULT_ACC_INPUTS = (-6000, -3000, 0, 3000, 5200)
 DEFAULT_HORIZON = 4
 DEFAULT_TERMINAL_DISTANCE_MM = 8_000
 K_US_MM_NUM = 25
@@ -129,6 +129,8 @@ class ActModel:
     horizon: int
     start: ActState
     terminal_distance: int
+    ref_d: tuple[int, ...] = ()
+    ref_psi: tuple[int, ...] = ()
     understeer_num: int = K_US_MM_NUM
     understeer_den: int = K_US_B_DEN
     terminal_min_b: int = 4_000_000
@@ -213,14 +215,26 @@ class ActModel:
         return min(self.speeds)
 
     def terminal_cap(self) -> int:
-        """Conservative declared terminal cap: local grip cap and domain radius."""
+        """Largest terminal speed^2 that can still brake for the visible road.
+
+        The local grip cap alone is unsafe when a corner follows the horizon;
+        a fixed radius cap is over-conservative and forces every plan to
+        ~3.4 m/s.  The braking envelope below is the recursive-feasibility
+        condition: from the horizon speed, every later station j must satisfy
+        ``b_H <= cap_j + 2*a_brk*(s_j-s_H)``.
+        """
         vmax2 = int(self.lon["v_max"]) ** 2
         h = min(self.horizon, len(self.k) - 1)
         k = abs(self.k[h])
         cap = vmax2 if k == 0 else min(vmax2, int(self.lon["a_lat"]) * 1_000_000_000 // k)
+        for j in range(h + 1, len(self.k)):
+            kj = abs(self.k[j])
+            cj = vmax2 if kj == 0 else min(vmax2, int(self.lon["a_lat"]) * 1_000_000_000 // kj)
+            cap = min(cap, cj + 2 * int(self.lon["a_brk"]) * (self.s[j] - self.s[h]))
         return max(cap, 0)
 
-    def terminal_ok(self, s: ActState, *, index: int | None = None) -> bool:
+    def terminal_ok(self, s: ActState, *, index: int | None = None,
+                    cap: int | None = None) -> bool:
         i = s.station if index is None else index
         if i != self.horizon:
             return False
@@ -228,10 +242,10 @@ class ActModel:
             return False
         if abs(s.psi) > self.terminal_max_psi or abs(s.delta) > self.terminal_max_delta:
             return False
-        return self.terminal_min_b <= s.b <= self.terminal_cap()
+        return self.terminal_min_b <= s.b <= (self.terminal_cap() if cap is None else cap)
 
-    def terminal_cost(self, s: ActState) -> int | None:
-        if not self.terminal_ok(s):
+    def terminal_cost(self, s: ActState, *, cap: int | None = None) -> int | None:
+        if not self.terminal_ok(s, cap=cap):
             return None
         if self.terminal_distance <= 0:
             return 0
@@ -299,9 +313,11 @@ class ActModel:
     def action_cost(self, s: ActState, t: ActState) -> int:
         # Lexicographic (time, steering effort): effort is bounded by 1000,
         # so a one-microsecond time difference dominates any effort difference.
+        rd = self.ref_d[s.station + 1] if len(self.ref_d) > s.station + 1 else 0
+        rp = self.ref_psi[s.station + 1] if len(self.ref_psi) > s.station + 1 else 0
         return (COST_TIME_WEIGHT * time_cost(self.gap(s.station), s.b, t.b)
                 + abs(t.delta - s.delta) // 1000
-                + D_WEIGHT * abs(t.d) + PSI_WEIGHT * abs(t.psi) // 100)
+                + D_WEIGHT * abs(t.d - rd) + PSI_WEIGHT * abs(t.psi - rp) // 100)
 
     def actions(self, s: ActState) -> list[tuple[ActState, int, int, int]]:
         out = []
@@ -321,6 +337,7 @@ class ActModel:
             "steer_inputs": list(self.steer_inputs), "acc_inputs": list(self.acc_inputs),
             "horizon": self.horizon, "start": self.start.as_dict(),
             "terminal_distance": self.terminal_distance,
+            "ref_d": list(self.ref_d), "ref_psi": list(self.ref_psi),
             "understeer_num": self.understeer_num, "understeer_den": self.understeer_den,
             "terminal_min_b": self.terminal_min_b,
             "terminal_max_psi": self.terminal_max_psi,
@@ -342,6 +359,8 @@ def model_from_instance(instance: dict) -> ActModel:
         horizon=int(instance["horizon"]),
         start=ActState.from_any(instance["start"]),
         terminal_distance=int(instance["terminal_distance"]),
+        ref_d=tuple(int(x) for x in instance.get("ref_d", [])),
+        ref_psi=tuple(int(x) for x in instance.get("ref_psi", [])),
         understeer_num=int(instance.get("understeer_num", K_US_MM_NUM)),
         understeer_den=int(instance.get("understeer_den", K_US_B_DEN)),
         terminal_min_b=int(instance.get("terminal_min_b", 4_000_000)),
