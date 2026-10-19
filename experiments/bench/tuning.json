@@ -1,0 +1,51 @@
+{
+  "_about": "Ablation and calibration evidence for timed-1. Each row is a tools/bench.py run set on the bicycle backend (seed 0) with the controller config named in 'variant'; 'base' is experiments/configs/timed_default.yaml (and the module defaults). These runs were made during tuning on a busy machine, so the latency columns are indicative only; the latency claims in docs/timed_audit.md come from the committed experiments/bench/latency*.json.",
+  "public_courses": {
+    "timed_base": [
+      {"course": "practice_basic", "time_s": 34.35, "cones": 1, "off": 0, "tech": 55.0},
+      {"course": "practice_technical", "time_s": 37.33, "cones": 5, "off": 0, "tech": 49.0},
+      {"course": "practice_loop", "time_s": 97.22, "cones": 18, "off": 0, "tech": 14.2},
+      {"course": "practice_obstacles", "time_s": 60.94, "cones": 14, "off": 0, "tech": 15.4},
+      {"course": "hackathon_test", "time_s": 56.51, "cones": 8, "off": 0, "tech": 37.0}
+    ],
+    "certline": [
+      {"course": "practice_basic", "time_s": 29.18, "cones": 0, "tech": 73.6},
+      {"course": "practice_technical", "time_s": 35.73, "cones": 0, "tech": 69.0},
+      {"course": "practice_loop", "time_s": 85.05, "cones": 0, "tech": 70.4},
+      {"course": "practice_obstacles", "time_s": 50.61, "cones": 0, "tech": 72.1},
+      {"course": "hackathon_test", "time_s": 47.53, "cones": 0, "tech": 71.6}
+    ],
+    "actuator_exact": [
+      {"course": "practice_basic", "time_s": 31.92, "cones": 0, "tech": 57.4, "exact_fraction": 0.19},
+      {"course": "practice_technical", "time_s": 39.32, "cones": 0, "tech": 52.6, "exact_fraction": 0.17},
+      {"course": "practice_loop", "time_s": 85.25, "cones": 0, "tech": 66.5, "exact_fraction": 0.02},
+      {"course": "practice_obstacles", "time_s": 53.36, "cones": 0, "tech": 63.5, "exact_fraction": 0.08},
+      {"course": "hackathon_test", "time_s": 49.82, "cones": 0, "tech": 60.0, "exact_fraction": 0.10}
+    ]
+  },
+  "ablations": [
+    {"variant": "no certline reference prior (final objective)", "result": "100% exact decisions; certline's published line is not used as a prior at all, so the objective contains no reference-tracking term (docs/timed_controller.md §3)"},
+    {"variant": "first-block pedals 7 -> 5 (drop +-600)", "course": "practice_basic / practice_technical", "result": "39.40 s, 10 cones; technical DNF", "verdict": "rejected: the executed pedal resolution is load-bearing"},
+    {"variant": "middle-block steering 5 -> 3 (15 -> 9 actions)", "course": "practice_basic / practice_technical", "result": "stalled at 70% (stuck) / off-course DNF", "verdict": "rejected"},
+    {"variant": "tail 6 -> 5 control periods", "course": "practice_basic / practice_technical", "result": "34.45 s, 1 cone / DNF", "verdict": "rejected"},
+    {"variant": "tail 6 -> 4 control periods", "course": "practice_basic / practice_technical", "result": "34.27 s, 3 cones / DNF (26 off-course)", "verdict": "rejected"},
+    {"variant": "two blocks (1,4)", "course": "practice_basic / practice_technical", "result": "DNF (21 cones / 4 cones, 11 off-course)", "verdict": "rejected: 0.45 s horizon is myopic"},
+    {"variant": "clearance HW 1230 (no extra margin)", "course": "practice_basic", "result": "8 cones", "verdict": "rejected; HW 1330 adopted"},
+    {"variant": "clearance HW 1430", "course": "practice_basic", "result": "5 cones", "verdict": "rejected (non-monotone: fewer feasible plans -> recovery mode)"},
+    {"variant": "grip budget MU 930", "course": "practice_basic / practice_technical", "result": "9 cones / 13 cones", "verdict": "rejected: model optimistic at the limit"},
+    {"variant": "grip budget MU 800", "course": "practice_basic / practice_loop", "result": "4 cones / 28 cones", "verdict": "rejected: more infeasible steps"},
+    {"variant": "terminal cap A_LT 8800-9200 with MU 900-940", "course": "practice_basic / practice_technical", "result": "10-17 cones, technical DNF", "verdict": "rejected"},
+    {"variant": "T_TAIL 500 -> 1000 ms", "course": "practice_basic / practice_technical", "result": "34.2 s / 22 cones (older model revision)", "verdict": "not adopted"},
+    {"variant": "progress-based branch-and-bound pruning", "result": "found UNSOUND from outside the corridor (progress rate is clamped, not bounded); with a deliberately bad incumbent it returned a worse plan", "verdict": "removed; regression test tests/test_timed_model.py::test_violation_pruning_is_sound_from_outside_the_corridor"}
+  ],
+  "calibration": {
+    "source": "autocross/backends/bicycle.py defaults fitted to CARLA telemetry (config/sim.yaml vehicle.bicycle)",
+    "measured": {
+      "steady_state_understeer": "neutral up to |ay| ~ 5 m/s^2 (K_us ~ 0 within measurement noise); the linear single-track model matches r within 0.03 rad/s below saturation",
+      "grip_limit": "measured |ay| max 9.4-9.5 m/s^2 in the backend; modelled dynamics saturate at MU_T=0.97, constraint budget MU=0.87",
+      "actuator": "steer_time_constant 0.06 s -> per-tick lag factor 0.65334 for 10x2.5 ms substeps; harness slew 2.0/s = 50 milli per 25 ms tick",
+      "longitudinal": "full throttle 5.2 m/s^2 below 20 m/s; full brake -8.9 m/s^2; coasting -0.13 to -0.28 m/s^2 (drag 0.55 m^2 + rolling 0.012)"
+    },
+    "prediction_error": "experiments/bench/fidelity_practice_basic.json"
+  }
+}

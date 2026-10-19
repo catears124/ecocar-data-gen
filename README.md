@@ -25,6 +25,19 @@ python -m autocross selftest -c teams/certline.py --carla    # the same courses 
 
 `selftest` also checks the sandbox rules (no writes, no sockets, no `ctypes`, no course data from disk) and reports finishes, penalties, step time and technical points. CARLA is optional for the first command; only the `--carla` pass needs a server and a GPU.
 
+## Time-indexed actuator-optimal controller (`timed-1`)
+
+`teams/timed_exact.py` runs an exact, time-indexed joint steering/pedal optimiser:
+25 ms model ticks, the first plan block is exactly one 50 ms control period, a
+lexicographic objective `(constraint violation, progress, effort)` over every
+plan of the declared action blocks, and the published command is the model's own
+first command. `lean/Corpus/Timed.lean` proves that an accepted certificate
+implies *no plan of the declared model is cheaper* and that its first command is
+the one that was executed; `tools/timed_audit.py` binds the proof to a recorded
+run (instance hash, plan, published command) and upgrades steps to
+`lean_checked` only after the compiled checker accepts. Details, measurements and
+the honest gap analysis: `docs/timed_controller.md`, `docs/timed_audit.md`.
+
 ## What is proven, and what is measured
 
 | | Where | What it says |
