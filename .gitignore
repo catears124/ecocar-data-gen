@@ -27,3 +27,4 @@ datasets/*.zip
 # IL experiment artifacts are regenerated; keep only machine-readable summaries
 experiments/il/results/runs/
 experiments/il/results/weights/
+!teams/actuator_exact.py
