@@ -58,7 +58,7 @@ checker re-enumerates all 4725 plans); the *binding* checks cover every step.
 | 3 Model fidelity (predictions vs telemetry, timing mismatch fixed) | **MEASURED** | time-indexed: 25 ms ticks = physics tick, first block = one 50 ms control period; `tools/timed_fidelity.py`: d p95 7 mm @50 ms → 78 mm @500 ms, psi p95 3 mrad → 20 mrad |
 | 4 Controller performance (completion, collisions, penalised score) | **PARTLY MET** | completion 9/9 courses; 0 cones on the four held-out generated courses; **does not** beat `certline` or the previous actuator controller on the public courses (table below) |
 | 5 Certified coverage (exact-action fraction, justified fallbacks) | **MET for exact steps** | 100% of published decisions came from the exact solver on every course (no envelope fallbacks); 60–77% of those plans are fully feasible (`dbg_feasible=1`), the rest are exact minimum-violation recovery optima |
-| 6 Deployment (1 core, 1 GB, 50 ms) | **NOT MET at p99** | solver-only p50 17.3 ms / p99 48.3 ms / max 58.1 ms, RSS 59 MB; closed loop p50 24.2 ms / p99 56.4 ms with 20/745 held commands on `practice_basic` |
+| 6 Deployment (1 core, 1 GB, 50 ms) | **NOT MET (tail latency)** | solver-only p50 17.8 ms / p99 48.1 ms / max 73.9 ms, RSS 59 MB (1440 solves over 720 recorded instances); closed loop p50 24.2 ms / p99 56.4 ms / max 63.9 ms with 20/745 held commands on `practice_basic`. The median fits with margin; the tail does not |
 | 7 Reproducibility | **MET** | `experiments/README.md`, committed JSON, fixed seeds |
 
 ## Closed loop (bicycle backend, seed 0, official scoring)
@@ -77,6 +77,12 @@ controller is slower and clips boundary cones on the tight public courses.
 
 ## Why it does not beat the baselines (diagnosis, not excuse)
 
+* Tail latency: the exact search enumerates 4725 plans × 20 ticks. A second
+  branch-and-bound bound (progress, inside the corridor) would cut it, but the
+  first attempt at such a bound was *inadmissible* and silently changed the
+  optimum (see the regression test), so it was removed rather than tuned. A
+  compiled kernel would fix this, but the controller sandbox denies
+  `ctypes.dlopen`, so numba/AOT native code cannot be loaded.
 * The plan is chosen over a 0.9 s horizon with **constraint violation first**
   (lexicographic). On tight courses the model's own constraint set is
   unsatisfiable for 23–40% of steps (`dbg_feasible=0`), and the controller then

@@ -218,11 +218,11 @@ and clips boundary cones on the tight public courses; `docs/timed_audit.md` §
 
 | measurement | p50 | p95 | p99 | max |
 |---|---|---|---|---|
-| solver only, 720 recorded instances (`timed_latency.py`) | 17.3 ms | 37.2 ms | 48.3 ms | 58.1 ms |
+| solver only, 720 recorded instances ×2 (`timed_latency.py`) | 17.8 ms | 36.2 ms | 48.1 ms | 73.9 ms |
 | closed loop `practice_basic` (`bench.py --jobs 1`) | 24.2 ms | — | 56.4 ms | 63.9 ms |
 | closed loop `practice_technical` | 18.7 ms | — | 43.4 ms | 85.6 ms |
 
-Peak RSS 59 MB in the solver process, 43 MB per controller process in the loop.
+Peak RSS 60 MB in the solver process, 44 MB per controller process in the loop.
 **The 50 ms deadline is not met at p99**: on `practice_basic` 20 of 745 steps
 overran and the harness held the previous command. `numba` cannot be used inside
 the controller (the sandbox denies `ctypes.dlopen`), so this is pure
