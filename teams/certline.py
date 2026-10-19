@@ -12,27 +12,33 @@ byte-for-byte in their arithmetic and evaluated every control step on the *live*
   profile; when the car is already over budget it is full braking (the pointwise-least speeds).
   Lean proves, for this function: greatest-safe, same-information optimality, and the
   min-violation property (see ``lean/Corpus/Cert.lean``).
-* **``steer-1`` (lateral).** ``_decide_lateral`` chooses the obstacle pass side, builds the
+* **``steer-2`` (lateral).** ``_decide_lateral`` chooses the obstacle pass side, builds the
   integer offset profile (smoothstep ramps into the wider free gap, clamped to the cone
   corridor), and derives the planned path's curvature demand ``curv_i = |kappa_road_i| +
   1000*|d2 offset_i|`` plus the linearised steering feed-forward ``curv_i*1000/kappa_max``.
-  Lean proves the branch complete and the gap-side tie rule (``lean/Corpus/Steer.lean``).
+  Lean proves the branch complete, the gap-side tie rule (``lean/Corpus/Steer.lean``) and, under
+  the decidable domain predicates ``clearanceDomain``/``holdTargetsOK``, hold-window clearance of
+  every ``plan_ok`` plan (``lean/Corpus/SteerClear.lean``).
 
 The two are made mutually consistent here: the longitudinal grip bound uses the curvature of the
-path *this controller actually publishes* (the ``steer-1`` demand, tightened by the Menger
-curvature of the published polyline), so the plan and its speed profile describe the same path.
+path *this controller actually publishes* (centreline curvature plus the second difference of the
+published offsets, max over a +-1 station window), so the plan and its speed profile describe
+the same path. ``lean/Corpus/Controller.lean`` and ``ControllerLong.lean`` prove the clearance
+interval, projection, publication order and speed decision of this file's integer functions.
 
-Above them sits the (uncertified) tracking/actuation layer: pure pursuit plus curvature
-feed-forward plus yaw-rate damping (the certified feed-forward steering, signed by the road),
-a grip clamp so the commanded steer never asks for more than ``grip_clamp`` of ``mu*g``, a
-command rate limit inside the actuator's slew limit, and a pedal map that never overlaps the
-pedals and leaves grip for cornering.
+Above them sits the (uncertified) tracking/actuation layer: path-error state feedback (cross-track
+and heading error to the published path, taken at the pose the car will have once the command
+acts, plus the path's own curvature as feed-forward), a grip clamp so the commanded steer never
+asks for more than ``grip_clamp`` of ``mu*g``, a command rate limit inside the actuator's slew
+limit, and a pedal map that never overlaps the pedals and leaves grip for cornering. Each plan
+starts on the previous plan at the car's new course station, so the published path is a stable
+reference rather than one re-anchored on the car every step.
 
 Budgets (``lat_frac``/``acc_frac``/``brk_frac``/``horizon_r``) are declared model constants, not
 tyre measurements: the sharper the declared budget the faster and the less conservative the
 certificate. Defaults sit inside the published tyre limits. Tune with ``--controller-config``.
 
-Trust boundary: the certified label covers the longitudinal decision (and, for ``steer-1``, the
+Trust boundary: the certified label covers the longitudinal decision (and, for ``steer-2``, the
 lateral plan) of its own model. Steering, pedal mapping and path tracking are not certified, and
 nothing here is a claim about CARLA or bicycle dynamics.
 """
@@ -70,9 +76,10 @@ BOX_FRAC = 1.0 / math.sqrt(2.0)
 # The union floor (6.5 m) is therefore the declared r_min, and a decision from it is sound whichever
 # of open/closed the unreleased courses turn out to be. r_h is the effective radius of that tightest
 # planned path by the same formula cert-2 uses (sidestep curvature 6y/R_SW^2, parallel-curve
-# corrected) -- the mirrors of the generators' own constants in
-# ``autocross.datagen.cert`` (DOMAIN_R_MIN_M / DOMAIN_Y_MAX_M / DOMAIN_R_SW_M -> DOMAIN_HORIZON_MM),
-# so the submission and the certified expert declare the same domain.
+# corrected), computed exactly as ``autocross.datagen.cert.domain_horizon_mm``. The corpus expert
+# declares the same y_max and R_SW but r_min = 6.0 m (the measured floor minus a 0.5 m margin,
+# r_h = 1.809 m); this controller uses the measured floor itself (r_h = 2.078 m). Both are
+# declarations from a 40-seed measurement, not proofs about trackgen.
 DOMAIN_R_MIN_M = 6.5                        # union floor: trackgen closed measured floor
 DOMAIN_WIDTH_M = 5.5 + 1.0                  # trackgen hairpin width = base width + 1.0
 
@@ -97,12 +104,15 @@ DEFAULTS = dict(
     # --- declared budgets of the certified models -------------------------------------------
     lat_frac=BOX_FRAC,      # a_lat = lat_frac * mu * g (lateral grip budget of the plan)
     acc_frac=BOX_FRAC,      # a_acc = min(max_accel, acc_frac * mu * g)
-    brk_frac=BOX_FRAC,      # a_brk = min(max_decel, brk_frac * mu * g)
+    brk_frac=0.50,          # a_brk = min(max_decel, brk_frac * mu * g). Below the box on purpose:
+                            #   planning to brake at half the circle starts braking earlier and
+                            #   leaves the tracker lateral grip on corner entry (bicycle sweep over
+                            #   15 courses: 0.71 -> 48 cone hits, 0.50 -> 0, lap time unchanged)
     horizon_r=DOMAIN_HORIZON_MM / 1000.0,   # terminal constraint b_n <= a_lat * r_h [m]; the
-                            #   declared domain's tightest planned path (~3.2 m), see above
+                            #   declared domain's tightest planned path (2.078 m), see above
     gap_speed=1.0,          # 1 = declared gap-speed rule beside a visible obstacle (see below)
-    gap_base=5.0,           # gap-speed rule: v <= gap_base + gap_per_m * slack [m/s]
-    gap_per_m=6.0,          #   slack = free gap width - car width - 2*gap_margin [m]
+    gap_base=7.0,           # gap-speed rule: v <= gap_base + gap_per_m * slack [m/s]
+    gap_per_m=8.0,          #   slack = free gap width - car width - 2*gap_margin [m]
     hold=3.0,               # obstacle half-length of the lateral plan [m]
     ramp_in=18.0,           # sidestep ramp lengths of the lateral plan [m]
     ramp_out=15.0,
@@ -119,13 +129,22 @@ DEFAULTS = dict(
     k_ff=0.35,              # gain on the curvature feed-forward steering
     k_pp=1.3,               # gain on the pure-pursuit term
     k_psi=0.40,             # gain on the path-tangent heading error at the look-ahead (mode 0)
-    k_r=0.30,               # yaw-rate damping [s]
+    k_r=0.30,               # yaw-rate damping gain [s]
+    k_obs_track=1.50,       # obstacle-hold cross-track correction (uncertified tracker reserve)
     k_v=0.50,               # speed-error gain on top of the certified acceleration [1/s]
     ld_base=2.0,            # look-ahead [m]
     ld_gain=0.30,           # look-ahead per m/s
     ld_min=3.0,
     ld_max=8.0,
     ld_ff=3.0,              # look-ahead for the curvature feed-forward and yaw-rate reference [m]
+    trk_mode=1.0,           # 1 = path-error state feedback (below), 0 = legacy pure-pursuit blend
+    trk_omega=3.25,         # closed-loop natural frequency of the lateral error [rad/s]
+    trk_zeta=0.9,           # ... and its damping ratio
+    trk_vmin=3.0,           # speed floor of the gain schedule [m/s]
+    trk_lag=0.10,           # steering lag the errors are predicted over [s] (actuator + ZOH)
+    trk_lead=0.0,           # feed-forward curvature taken this far ahead of the projection [s]
+    line_anchor=1.0,        # 1 = start each plan on the previous plan (course frame), 0 = on the car
+    thr_reserve=0.5,        # throttle cap 1 - (thr_reserve * |ay| / mu g)^2 (floor 0.15)
     grip_clamp=1.00,        # commanded steer never asks for more than this * mu*g laterally
     recover_lat=0.70,       # recovery guard: |lateral offset| / width beyond which it engages
     recover_head=0.30,      # recovery guard: |heading error| [rad] beyond which it engages
@@ -136,19 +155,16 @@ DEFAULTS = dict(
     recover_throttle=0.25,  # throttle held while recovering below recover_vmin (never stall: a
     recover_vmin=4.0,       #   stopped car is a 'stuck' DNF after 8 s)
     # --- racing line: min-curvature offsets *inside* the certified clearance interval ----------
-    line_on=1.0,            # 1 = plan the min-curvature line, 0 = the certified steer-1 plan
+    line_on=1.0,            # 1 = plan the min-curvature line, 0 = the certified steer-2 plan
     line_shrink=0.15,       # plan this far inside the certified interval [m] (strictly safer than
                             #   the certified plan, which rides the interval it clamps to)
-    line_w_prev=3.0,        # stickiness to the previous plan: keeps the *published* path stable
-    line_w_center=0.002,    # weak pull to the centerline
+    line_w_prev=0.7,        # stickiness to the previous plan (course frame): keeps the published
+                            #   path stable without freezing it
+    line_w_center=0.001,    # weak pull to the centerline
     line_ramp=0.35,         # fallback plan: max lateral rate per station [m/m] (a fold the harness
                             #   would reject is the one thing the tracker must never be handed)
     line_iters=8,           # active-set iterations of the box QP
     line_eps=1e-6,          # Tikhonov term so the free block is always invertible
-    line_smooth=5,          # moving-average window on the plan offsets [stations]; the
-                            #   published path is the smoothed one, re-clamped into the
-                            #   certified interval, so its curvature demand is real, not
-                            #   the second-difference noise of the raw plan
     # --- obstacle memory (the road model drops an obstacle 3 m behind the car while the rear axle
     #     is still alongside it; the plan must not pull back into it) ---------------------------
     obs_pre=4.5,            # keep a remembered obstacle this far before its station [m]
@@ -168,13 +184,25 @@ DEFAULTS = dict(
 
 # --------------------------------------------------------------------------- cert-2 (vendored)
 def qfix(x, scale: int) -> int:
-    """round-half-up(x*scale), exact on the shortest decimal repr; raises on None/NaN/inf."""
+    """round-half-up(x*scale), exact on the shortest decimal repr; raises on None/NaN/inf.
+
+    Integer-only: ``repr(x)`` is split into an integer mantissa ``M`` and a decimal exponent ``E``
+    (``x = M·10^E`` exactly as written), so ``floor(M·scale·10^E + 1/2)`` is computed with integer
+    floor division -- the same value as ``floor(Fraction(repr(x))*scale + 1/2)``, ~20x faster.
+    """
     if isinstance(x, bool) or x is None:
         raise ValueError("not a number")
     x = float(x)
     if not math.isfinite(x):
         raise ValueError("non-finite")
-    return math.floor(Fraction(repr(x)) * scale + Fraction(1, 2))
+    mant, _, exp = repr(x).partition("e")
+    ip, _, fp = mant.partition(".")
+    m = int(ip + fp)
+    e = (int(exp) if exp else 0) - len(fp)
+    if e >= 0:
+        return m * scale * 10 ** e
+    d = 10 ** (-e)
+    return (2 * m * scale + d) // (2 * d)
 
 
 def _nearest_index(s: list[int], d: int) -> int:
@@ -248,17 +276,25 @@ def forward(c: dict, bw: list[int], s: list[int], b0: int) -> list[int]:
     return f
 
 
-def decide_long(c: dict, q: dict | None, kappa_micro: list[int], cap_scale: float = 1.0) -> dict:
+def decide_long(c: dict, q: dict | None, kappa_micro: list[int], cap_scale: float = 1.0,
+                extra_caps: list[int] | None = None) -> dict:
     """Certified longitudinal decision on a path whose curvature bound is ``kappa_micro``.
 
-    ``cap_scale < 1`` shrinks every speed cap (including the terminal horizon cap), i.e. it targets
-    a speed strictly inside the declared budget instead of riding it. The profile stays feasible
-    for the (scaled) caps, so the decision keeps the same meaning with a slightly smaller budget."""
+    ``extra_caps`` are optional per-station speed² caps in mm²/s².  They are
+    intersected with the curvature/gap caps before the unchanged Cert-2
+    backward/forward passes.  The sidestep gate supplies these caps using
+    ``v² <= a_lat D²/(4 Δy)``: a bang-bang lateral move of ``Δy`` at
+    acceleration ``a_lat`` takes ``2*sqrt(Δy/a_lat)`` seconds, which must fit
+    before the hold-entry distance ``D``.
+    """
     invalid = {"kind": KIND_INVALID, "a": -c["a_max"], "b1": None, "b0": None, "B0": None}
-    if not well_formed(q) or not consts_ok(c) or len(kappa_micro) != len(q["s"]):
+    if (not well_formed(q) or not consts_ok(c) or len(kappa_micro) != len(q["s"])
+            or (extra_caps is not None and len(extra_caps) != len(q["s"]))):
         return invalid
     vmax2 = c["v_max"] * c["v_max"]
     cap = [vmax2 if k <= 0 else min(vmax2, c["a_lat"] * 10 ** 9 // k) for k in kappa_micro]
+    if extra_caps is not None:
+        cap = [min(x, int(y)) for x, y in zip(cap, extra_caps)]
     # Declared gap-speed rule (the obstacle-passing constraint of the certified family model): beside
     # a visible obstacle the speed is capped by the free gap, so passing cannot rely on the line
     # being held exactly. A gap too narrow for the car makes the plan infeasible (no_feasible_gap).
@@ -276,10 +312,12 @@ def decide_long(c: dict, q: dict | None, kappa_micro: list[int], cap_scale: floa
                     cap[j] = min(cap[j], vg * vg)
     cap[-1] = min(cap[-1], c["a_lat"] * c["r_h"])
     cap = [int(x * cap_scale) for x in cap]
-    if not feasible:
-        return {"kind": KIND_NO_GAP, "a": -c["a_max"], "b1": None, "b0": q["v0"] * q["v0"], "B0": None}
+    # Same branch order as the Lean specification `Corpus.Controller.decideCaps` (and as
+    # `cert.decide`): a negative cap is an invalid input before the gap check is consulted.
     if any(x < 0 for x in cap):
         return invalid
+    if not feasible:
+        return {"kind": KIND_NO_GAP, "a": -c["a_max"], "b1": None, "b0": q["v0"] * q["v0"], "B0": None}
     b0 = q["v0"] * q["v0"]
     bw = backward(c, cap, q["s"])
     if b0 > bw[0]:
@@ -289,7 +327,7 @@ def decide_long(c: dict, q: dict | None, kappa_micro: list[int], cap_scale: floa
     return {"kind": KIND_GREATEST_SAFE, "a": a, "b1": f[1], "b0": b0, "B0": bw[0]}
 
 
-# --------------------------------------------------------------------------- steer-1 (vendored)
+# --------------------------------------------------------------------------- steer-2 (vendored)
 def _ramp(A: int, x: int, L: int) -> int:
     """Floor-divided cubic smoothstep for ``0 <= x <= L``."""
     if L <= 0:
@@ -331,12 +369,15 @@ def _w_ob(c: dict, d: int, si: int) -> int:
     if si <= d + hold:
         return 1000
     if si <= d + hold + rout:
-        return 1000 - _ramp(1000, si - d - hold, rout)
+        # Keep ramp-out weights strictly below the in-hold weight.  Otherwise a
+        # small ramp-out position ties an earlier obstacle's hold and the
+        # first-strictly-largest supplier remains selected.
+        return min(999, 1000 - _ramp(1000, si - d - hold, rout))
     return 0
 
 
 def lateral_constants(vp: VehicleParams, cfg: dict, lon: dict) -> dict:
-    """``steer-1`` constants: kappa_max is the linearised bicycle limit of the published steer.
+    """``steer-2`` constants: kappa_max is the linearised bicycle limit of the published steer.
     Carries the longitudinal geometry it needs (hold, ramps, vehicle width) so the lateral
     decision is a pure function of one constant object, as in the Lean mirror."""
     wb_mm = int(round(vp.wheelbase * 1000))
@@ -379,7 +420,7 @@ def _second_at(xs: list[int], i: int) -> int:
 
 
 def curv_bound_micro(q: dict, offsets: list[int]) -> list[int]:
-    """``steer-1`` curvature demand of an offset profile: ``|k_road| + 1000*|d2 offset|`` (micro-1/m).
+    """``steer-2`` curvature demand of an offset profile: ``|k_road| + 1000*|d2 offset|`` (micro-1/m).
     An upper bound on the true curvature of the offset path, exactly as the certified model uses it."""
     return [abs(q["k"][i]) + 1000 * _second_at(offsets, i) for i in range(len(offsets))]
 
@@ -395,7 +436,7 @@ def _has_no_gap(c: dict, q: dict) -> bool:
 
 
 def decide_lateral(c: dict, lon: dict, q: dict | None) -> dict:
-    """Complete ``steer-1`` decision: pass sides, offset profile (mm), curvature demand, steering."""
+    """Complete ``steer-2`` decision: pass sides, offset profile (mm), curvature demand, steering."""
     if q is None or not well_formed(q) or not consts_ok(lon):
         return {"kind": KIND_PLAN_INVALID, "off": [], "curv": [], "steer": [], "side": []}
     offs = [_clamp_at(c, q, i, _raw_off(c, q, si)) for i, si in enumerate(q["s"])]
@@ -422,20 +463,6 @@ def _plausible(path: np.ndarray, max_curvature: float = 0.45, min_length: float 
     return bool(np.all(dh <= max_curvature * np.maximum(seg[1:], 1e-6) + 1e-9))
 
 
-def _menger_curvature(path: np.ndarray) -> np.ndarray:
-    """Signed curvature (1/m, + = left) at each vertex of an (N,2) vehicle-frame polyline."""
-    n = len(path)
-    if n < 3:
-        return np.zeros(n)
-    a, b, c = path[:-2], path[1:-1], path[2:]
-    ab, bc, ca = b - a, c - b, a - c
-    cross = ab[:, 0] * bc[:, 1] - ab[:, 1] * bc[:, 0]
-    den = np.linalg.norm(ab, axis=1) * np.linalg.norm(bc, axis=1) * np.linalg.norm(ca, axis=1)
-    k = np.zeros(n)
-    k[1:-1] = np.where(den > 1e-9, 2.0 * cross / np.maximum(den, 1e-9), 0.0)
-    return k
-
-
 # --------------------------------------------------------------------------- racing line
 def _remember(c: dict, mem: list[dict], obstacles_mm: list[list[int]], q: dict,
               progress_mm: int, pre_mm: int, post_mm: int) -> None:
@@ -444,7 +471,7 @@ def _remember(c: dict, mem: list[dict], obstacles_mm: list[list[int]], q: dict,
     The road model drops an obstacle about 3 m behind the car while the rear axle is still
     alongside it, so a plan built from the visible set alone pulls back to the centerline exactly
     where the car has to stay offset. A remembered obstacle is matched by station and lateral
-    overlap, keeps the side steer-1 gave it when it was first seen (no left/right flip-flopping
+    overlap, keeps the side steer-2 gave it when it was first seen (no left/right flip-flopping
     between steps), and is dropped ``post_mm`` after the car has passed its station.
     """
     for d, lmin, lmax in obstacles_mm:
@@ -461,13 +488,41 @@ def _remember(c: dict, mem: list[dict], obstacles_mm: list[list[int]], q: dict,
         o["d"] = o["st"] - progress_mm
 
 
+
+
+def _sidestep_caps(c: dict, q: dict, mem: list[dict], offsets_m: np.ndarray) -> list[int]:
+    """Integer speed² caps needed to reach each remembered hold entry.
+
+    At every step ``q`` is re-quantised and ``mem`` is in vehicle-relative
+    stations.  For an entry ``D = d - hold > 0`` and lateral displacement
+    ``dy``, the bang-bang minimum time is ``2*sqrt(dy/a_lat)``; requiring
+    ``D/v`` to exceed that time gives ``v² <= a_lat*D²/(4*dy)``.
+    """
+    caps = [2 ** 120] * len(q["s"])
+    if not mem or len(offsets_m) != len(q["s"]) or c["a_lat"] <= 0:
+        return caps
+    for o in mem:
+        entry = int(o["d"]) - int(c["hold"])
+        if entry <= 0:
+            continue
+        target = int(round(float(np.interp(entry, q["s"], offsets_m)) * MM))
+        dy = abs(target - int(q["lat"]))
+        if dy <= 0:
+            continue
+        gate = c["a_lat"] * entry * entry // (4 * dy)
+        for i, si in enumerate(q["s"]):
+            if si < entry:
+                caps[i] = min(caps[i], gate)
+    return caps
+
+
 def _spare_boxes(c: dict, q: dict, mem: list[dict], i: int) -> tuple[int, int]:
     """Certified clearance interval (mm) at station ``i``.
 
-    The corridor walls of steer-1 (``_bounds``) intersected with the half-space constraint of
+    The corridor walls of steer-2 (``_bounds``) intersected with the half-space constraint of
     every obstacle whose hold window covers the station: passing on the obstacle's left makes it a
     right-hand wall at ``lmax + halfw + margin``, passing on its right makes it a left-hand wall at
-    ``lmin - halfw - margin``. This is exactly the pair of terms in steer-1's ``clearAt``, so
+    ``lmin - halfw - margin``. This is exactly the pair of terms in steer-2's ``clearAt``, so
     ``lo <= d <= hi`` at a station is the statement "the plan keeps the certified clearance here".
     """
     lo, hi = _bounds(c, q, i)
@@ -510,67 +565,81 @@ def _box_qp(H, g, lo, hi, pin, iters: int, eps: float):
     return np.clip(d, lo, hi)
 
 
-def _smooth(x: np.ndarray, w: int) -> np.ndarray:
-    """Odd-window moving average with edge padding (w <= 1 returns x unchanged)."""
-    w = int(w)
-    if w <= 1 or len(x) < w:
-        return x
-    pad = w // 2
-    kern = np.ones(w) / float(w)
-    return np.convolve(np.pad(x, pad, mode="edge"), kern, mode="valid")
+def _plan_boxes(c: dict, q: dict, mem: list[dict], cfg: dict,
+                return_uncertified: bool = False):
+    """Return the corridor/obstacle boxes, shrunk where there is room.
 
-
-def _plan_boxes(c: dict, q: dict, mem: list[dict], cfg: dict) -> tuple[np.ndarray, np.ndarray]:
-    """Certified clearance interval (mm) per station, shrunk by ``line_shrink``.
-
-    Empty intervals are pinned to steer-1's own choice and intervals too tight to shrink are kept
-    whole, so the result is always the interval within which the plan is certified-clear.
+    A contradictory box is deliberately retained as ``lo > hi`` instead of being
+    replaced by a guessed steer-2 point.  Such a station has no certified
+    clearance witness and is reported to the caller as an uncertified recovery
+    station.  ``return_uncertified=False`` preserves the two-array helper API.
     """
     n = len(q["s"])
     shrink = int(round(float(cfg["line_shrink"]) * 1000.0))
     lo = np.empty(n)
     hi = np.empty(n)
+    uncertified = np.zeros(n, dtype=bool)
     for i in range(n):
         a, b = _spare_boxes(c, q, mem, i)
-        if a > b:                                   # no room at all: steer-1's own choice holds
-            a = b = _clamp_at(c, q, i, _raw_off(c, q, q["s"][i]))
+        if a > b:
+            uncertified[i] = True
         elif b - a > 2 * shrink:
             a, b = a + shrink, b - shrink
         lo[i], hi[i] = a, b
+    if return_uncertified:
+        return lo, hi, uncertified
     return lo, hi
+
+
+def _clamp_valid(x: np.ndarray, lo: np.ndarray, hi: np.ndarray) -> np.ndarray:
+    """Clamp only nonempty intervals; contradictory boxes remain recovery values."""
+    out = np.asarray(x, dtype=float).copy()
+    valid = np.asarray(lo) <= np.asarray(hi)
+    out[valid] = np.minimum(np.maximum(out[valid], lo[valid]), hi[valid])
+    return out
+
+
+def _publish_offsets(off_mm: np.ndarray, lo_mm: np.ndarray, hi_mm: np.ndarray,
+                     max_offset_m: float) -> np.ndarray:
+    """Fixed publish order: absolute cap first, certified interval clamp last."""
+    out = np.clip(np.asarray(off_mm, dtype=float), -1000.0 * max_offset_m,
+                  1000.0 * max_offset_m)
+    return _clamp_valid(out, np.asarray(lo_mm, dtype=float), np.asarray(hi_mm, dtype=float)) / 1000.0
 
 
 def _project_plan(off_mm: np.ndarray, lo_mm: np.ndarray, hi_mm: np.ndarray, ramp_mm: float,
                   iters: int = 2) -> np.ndarray:
-    """Rate-limit a plan inside its interval: what remains of a fold is only what safety forces.
+    """Rate-limit a plan and re-clamp every pass into each nonempty interval.
 
-    Steer-1's offset profile can switch obstacle suppliers abruptly (its combination rule is
-    "first strictly-largest weight"), which on two closely spaced *opposing* obstacles produces a
-    lateral jump the harness rightly rejects as undrivable -- and a jump the tracker would have to
-    chase. This is a two-pass projection: limit |offset[i] - offset[i-1]| to ``ramp_mm`` per
-    station, then clamp back into the certified interval every time (safety outranks smoothness, so
-    the interval always wins; on a layout that genuinely pinches the path, some rate is forced).
+    Contradictory intervals are retained for explicit uncertified recovery.  For
+    every station whose interval is nonempty, the returned integer/mm value is
+    inside that interval.
     """
     d = np.array(off_mm, float).copy()
+    lo_mm, hi_mm = np.asarray(lo_mm, float), np.asarray(hi_mm, float)
     for _ in range(max(int(iters), 1)):
         for i in range(1, len(d)):                    # forward
             d[i] = min(max(d[i], d[i - 1] - ramp_mm), d[i - 1] + ramp_mm)
-            d[i] = min(max(d[i], lo_mm[i]), hi_mm[i])
+            if lo_mm[i] <= hi_mm[i]:
+                d[i] = min(max(d[i], lo_mm[i]), hi_mm[i])
         for i in range(len(d) - 2, -1, -1):           # backward
             d[i] = min(max(d[i], d[i + 1] - ramp_mm), d[i + 1] + ramp_mm)
-            d[i] = min(max(d[i], lo_mm[i]), hi_mm[i])
-    return d
+            if lo_mm[i] <= hi_mm[i]:
+                d[i] = min(max(d[i], lo_mm[i]), hi_mm[i])
+    return _clamp_valid(d, lo_mm, hi_mm)
+
+
 
 
 def _racing_line(c: dict, q: dict, cl: np.ndarray, nrm: np.ndarray, lo: np.ndarray, hi: np.ndarray,
-                 prev: tuple | None, cfg: dict):
+                 prev: tuple | None, cfg: dict, s_abs: np.ndarray):
     """Minimum-curvature offsets (m) inside the certified clearance interval, or ``None``.
 
     Objective: the classic sum of squared second differences of the *path points*
     ``P_i = cl_i + n_i d_i`` -- i.e. ``min sum |P_{i+1} - 2 P_i + P_{i-1}|^2``, a curvature proxy
     that is quadratic in the offsets ``d``. Constraint: the certified interval of ``_plan_boxes``,
     pinned at station 0 to the lateral offset the car actually has (continuity of the published
-    path). Because every station ends inside the certified interval, the plan satisfies steer-1's
+    path). Because every station ends inside the certified interval, the plan satisfies steer-2's
     clearance predicate station by station -- the hypothesis of the certified terminal horizon
     bound -- so the longitudinal decision keeps its meaning on this path. It is also strictly
     smoother than the certified plan where that plan folds (opposing obstacles close together).
@@ -581,7 +650,17 @@ def _racing_line(c: dict, q: dict, cl: np.ndarray, nrm: np.ndarray, lo: np.ndarr
     lo = lo / 1000.0
     hi = hi / 1000.0
     pin = lo >= hi - 1e-9
-    lo[0] = hi[0] = q["lat"] / 1000.0               # the path starts where the car is
+    dprev = None
+    if prev is not None:                            # previous plan, resampled at today's stations
+        s_prev, d_prev = prev
+        if s_prev[0] <= s_abs[0] <= s_prev[-1]:
+            dprev = np.interp(s_abs, s_prev, d_prev)
+    start = q["lat"] / 1000.0                       # the path starts where the car is ...
+    if dprev is not None and float(cfg["line_anchor"]) > 0.5:
+        start = float(dprev[0])                     # ... or where the previous plan put it
+        if lo[0] <= hi[0]:
+            start = min(max(start, lo[0]), hi[0])
+    lo[0] = hi[0] = start
     pin = np.array(pin, bool)
     pin[0] = True
     D = np.zeros((n - 2, n))
@@ -590,10 +669,8 @@ def _racing_line(c: dict, q: dict, cl: np.ndarray, nrm: np.ndarray, lo: np.ndarr
     Ax, Ay = D * nrm[:, 0], D * nrm[:, 1]
     H = Ax.T @ Ax + Ay.T @ Ay
     g = Ax.T @ (D @ cl[:, 0]) + Ay.T @ (D @ cl[:, 1])
-    if prev is not None:                            # stickiness: keep the published path stable
-        s_prev, d_prev = prev
-        dprev = (d_prev if len(d_prev) == n else np.interp(q["s"], s_prev, d_prev))
-        w = float(cfg["line_w_prev"]) * np.exp(-np.asarray(q["s"], float) / 12000.0)
+    if dprev is not None:                           # stickiness: keep the published path stable
+        w = float(cfg["line_w_prev"]) * np.exp(-(s_abs - s_abs[0]) / 12.0)
         H = H + np.diag(w)
         g = g - w * dprev
     if float(cfg["line_w_center"]) > 0.0:
@@ -604,9 +681,27 @@ def _racing_line(c: dict, q: dict, cl: np.ndarray, nrm: np.ndarray, lo: np.ndarr
     return np.clip(d, lo, hi)
 
 
+def _path_errors(path: np.ndarray, s: np.ndarray, px: float, py: float, pyaw: float):
+    """Signed cross-track error (+ = car left of the path), heading error (+ = car turned left of
+    the path) and station of the projection of the pose ``(px, py, pyaw)`` (vehicle frame) onto
+    the polyline ``path`` sampled at stations ``s``."""
+    c_, s_ = math.cos(pyaw), math.sin(pyaw)
+    rel = path - np.array([px, py])
+    p = np.column_stack((rel[:, 0] * c_ + rel[:, 1] * s_, -rel[:, 0] * s_ + rel[:, 1] * c_))
+    a, d = p[:-1], np.diff(p, axis=0)
+    dd = np.maximum(np.einsum("ij,ij->i", d, d), 1e-12)
+    t = np.clip(-np.einsum("ij,ij->i", a, d) / dd, 0.0, 1.0)
+    q = a + d * t[:, None]
+    i = int(np.argmin(np.einsum("ij,ij->i", q, q)))
+    dx, dy = float(d[i, 0]), float(d[i, 1])
+    e_y = (dx * (-float(q[i, 1])) - dy * (-float(q[i, 0]))) / math.sqrt(float(dd[i]))
+    e_psi = -math.atan2(dy, dx)
+    return e_y, e_psi, float(s[i] + t[i] * (s[i + 1] - s[i]))
+
+
 # --------------------------------------------------------------------------- controller
 class CertifiedRacingLine(Controller):
-    """``cert-2`` speed plan + ``steer-1`` lateral plan, tracked within the actuator limits."""
+    """``cert-2`` speed plan + ``steer-2`` lateral plan, tracked within the actuator limits."""
 
     def on_start(self, track: TrackInfo, vehicle: VehicleParams) -> None:
         super().on_start(track, vehicle)
@@ -614,7 +709,7 @@ class CertifiedRacingLine(Controller):
         cfg.update({k: v for k, v in self.config.items() if k in DEFAULTS})
         self.cfg = cfg
         self.lon = lon_constants(vehicle, cfg)              # cert-2 constants
-        self.steer_c = lateral_constants(vehicle, cfg, self.lon)   # steer-1 constants
+        self.steer_c = lateral_constants(vehicle, cfg, self.lon)   # steer-2 constants
         self.steer_prev = 0.0
         # --- planner state -------------------------------------------------------------------
         self.mem: list[dict] = []       # remembered obstacles, course coordinates + chosen side
@@ -641,7 +736,9 @@ class CertifiedRacingLine(Controller):
         q = quantise(obs)
         if road is None or not road.valid or len(road.preview_s) < 3 or q is None:
             return Command(brake=1.0, debug={"phase": -2.0, "kind": float(KIND_INVALID),
-                                             "status": float(KIND_PLAN_INVALID)})
+                                             "status": float(KIND_PLAN_INVALID),
+                                             "cert_clear": 0.0, "uncertified_stations": 0.0,
+                                             "line": 4.0})
         n = len(q["s"])
         v = max(obs.speed, 0.0)
         s = np.asarray(road.preview_s, float)
@@ -653,9 +750,9 @@ class CertifiedRacingLine(Controller):
             self._adapt_grip(obs, v)
 
         # ---------------------------------------------------------- lateral plan
-        # steer-1 is decided every step: it is the certified reference, the fallback, and the
+        # steer-2 is decided every step: it is the certified reference, the fallback, and the
         # safety interval of the racing line below. The racing line is used only *inside* that
-        # interval, so it satisfies steer-1's clearance predicate station by station -- the
+        # interval, so it satisfies steer-2's clearance predicate station by station -- the
         # hypothesis of the certified terminal horizon bound -- and the longitudinal decision keeps
         # its meaning on this path. Where the interval is empty or too tight to shrink, the
         # certified offsets are kept verbatim.
@@ -669,32 +766,46 @@ class CertifiedRacingLine(Controller):
         hd = np.arctan2(np.gradient(cl[:, 1]), np.gradient(cl[:, 0]))
         nrm = np.column_stack((-np.sin(hd), np.cos(hd)))
         lim = float(cfg["max_offset"])
-        lo_mm, hi_mm = _plan_boxes(self.steer_c, q, self.mem, cfg)
-        line = (_racing_line(self.steer_c, q, cl, nrm, lo_mm, hi_mm, self.prev_line, cfg)
-                if cfg["line_on"] > 0.5 else None)
-        if line is not None and int(cfg["line_smooth"]) > 1:
-            # Smooth the plan, then clamp back into the certified interval: the published path is
-            # smooth (so d2/ds2 is a real curvature demand rather than station-to-station noise)
-            # while every station still satisfies steer-1's clearance predicate.
-            line = np.clip(_smooth(line, int(cfg["line_smooth"])), lo_mm / 1000.0, hi_mm / 1000.0)
-        if line is not None and _plausible(cl + nrm * line[:, None]):
-            off, line_used = np.clip(line, -lim, lim), 1.0        # racing line, certified-clear
+        lo_mm, hi_mm, uncert = _plan_boxes(self.steer_c, q, self.mem, cfg, True)
+        has_empty = bool(np.any(uncert))
+        # Empty boxes are not silently replaced by the raw steer-2 answer.  They
+        # force an explicitly flagged recovery mode, while nonempty stations
+        # still receive the same final interval clamp in every branch.
+        prog = obs.progress if obs.progress is not None and math.isfinite(obs.progress) else None
+        s_abs = s + prog if prog is not None else None
+        line = (_racing_line(self.steer_c, q, cl, nrm, lo_mm, hi_mm,
+                             self.prev_line if s_abs is not None else None, cfg, s_abs)
+                if cfg["line_on"] > 0.5 and not has_empty else None)
+
+        def publish_candidate(candidate_mm: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+            published = _publish_offsets(candidate_mm, lo_mm, hi_mm, lim)
+            return published, cl + nrm * published[:, None]
+
+        if line is not None:
+            off, path = publish_candidate(line * 1000.0)
+            line_used = 1.0 if _plausible(path) else 0.0
         else:
-            # Fallbacks, each of which is still inside the certified interval (so the clearance
-            # claim survives): what we have, rate-limited to something drivable; then the certified
-            # plan as-is; the bare centerline only if even that is undrivable. Safety (the
-            # interval) outranks smoothness, which outranks the published-path metric.
-            cand = np.clip(_project_plan((line if line is not None else off_cert) * 1000.0,
-                                         lo_mm, hi_mm, float(cfg["line_ramp"]) * 1000.0) / 1000.0,
-                           -lim, lim)
-            if _plausible(cl + nrm * cand[:, None]):
-                off, line_used = cand, 2.0
+            off, path, line_used = np.zeros(n), None, 0.0
+        if line_used < 1.0:
+            # Rate-limit and re-project the candidate, then publish it through
+            # the same cap-first/interval-last operation.
+            seed = line * 1000.0 if line is not None else off_cert * 1000.0
+            cand_mm = _project_plan(seed, lo_mm, hi_mm, float(cfg["line_ramp"]) * 1000.0)
+            off, path = publish_candidate(cand_mm)
+            if _plausible(path):
+                line_used = 2.0
             else:
-                off, line_used = np.clip(off_cert, -lim, lim), 3.0
-                if not _plausible(cl + nrm * off[:, None]):
-                    off, line_used = np.zeros(n), 4.0
-        path = cl + nrm * off[:, None]
-        self.prev_line = (s.copy(), off.copy()) if line_used <= 2.0 else None
+                # Keep steer-2's offsets for fallback 3, but clamp the
+                # published result into each nonempty certified interval.
+                off, path = publish_candidate(off_cert * 1000.0)
+                line_used = 3.0
+                if not _plausible(path):
+                    # Centerline recovery is intentionally uncertified.  The
+                    # final publish operation still protects every nonempty
+                    # interval; contradictory boxes remain recovery values.
+                    off, path = publish_candidate(np.zeros(n))
+                    line_used = 4.0
+        self.prev_line = (s_abs.copy(), off.copy()) if line_used <= 2.0 and s_abs is not None else None
 
         # ---------------------------------------------------------- curvature bound + speed plan
         ds = np.diff(s, prepend=s[0] - (s[1] - s[0]))
@@ -713,13 +824,12 @@ class CertifiedRacingLine(Controller):
             k_cap = np.maximum(k_cap, np.abs(np.concatenate((np.full(j, k_cap[0]), k_cap[:-j]))))
             k_cap = np.maximum(k_cap, np.abs(np.concatenate((k_cap[j:], np.full(j, k_cap[-1])))))
         k_cap = np.maximum(k_cap * float(cfg["kappa_safety"]), float(cfg["kappa_floor"]))
-        # Sidestep-feasibility gate. ``steer-1``'s clearance certificate only holds inside an
-        # obstacle hold window, so the plan is safe only if the car is *on plan* when it gets there.
-        # The requirement is therefore: close the lateral distance to the plan's offset at the hold
-        # window entry within the declared lateral budget. If that is not reachable from the current
-        # speed, cap the speed now (the certified decision then brakes), so the car gains time to
-        # converge. Nothing here is fitted to a layout: it is the certificate's own condition.
-        dec = decide_long(self.lon, q, [int(round(x * 1e6)) for x in k_cap], float(cfg["cap_margin"]))
+        # Sidestep-feasibility gate.  For lateral displacement dy over entry
+        # distance D, bang-bang motion takes 2*sqrt(dy/a_lat); requiring D/v
+        # to cover it yields v² <= a_lat*D²/(4*dy).
+        extra_caps = _sidestep_caps(self.lon, q, self.mem, off)
+        k_micro = [int(round(x * 1e6)) for x in k_cap]
+        dec = decide_long(self.lon, q, k_micro, float(cfg["cap_margin"]), extra_caps)
 
         # ---------------------------------------------------------- steering (tracking layer)
         # Actuator delay compensation: the next `nd` commands are already queued in the actuator, so
@@ -750,7 +860,35 @@ class CertifiedRacingLine(Controller):
         # t_damp) summed to +0.219 and cancelled the +-0.206 cross-track correction, so the car sat
         # 0.84 m off its plan with ~0 steer. The reference rate belongs to the feed-forward.
         t_damp = -cfg["k_r"] * obs.yaw_rate
-        delta = t_ff + t_pp + t_psi + t_damp
+        # The published interval is certified, but the bicycle tracker can
+        # arrive at a hold window on the wrong side of it.  While a remembered
+        # obstacle is in/near hold, feed back the signed plan error so the
+        # tracker turns toward the published offset instead of following road
+        # curvature through the obstacle.
+        obs_track = 0.0
+        if any(-self.lon["hold"] - 1000 <= o["d"] <= self.lon["hold"] + 1000 for o in self.mem):
+            obs_track = cfg["k_obs_track"] * (float(off[0]) - float(road.lateral_offset))
+        delta = t_ff + t_pp + t_psi + t_damp + obs_track
+        e_y = e_psi = 0.0
+        if cfg["trk_mode"] > 0.5:
+            # Path-error state feedback. The errors are taken at the pose the car will have once
+            # this command acts (queued commands, then the steering lag at the current yaw rate);
+            # the feed-forward is the published path's own curvature at that projection, and the
+            # feedback places the linearised error dynamics e'' = (v^2/L) u at (omega, zeta).
+            px = py = pyaw = 0.0
+            if cfg["delay_comp"] > 0.5 and nd > 0 and len(self.cmd_hist) >= nd:
+                px, py, pyaw = self._predict_pose(obs, v, self.cmd_hist[-nd:])
+            lag = float(cfg["trk_lag"])
+            r = float(obs.yaw_rate)
+            px += v * lag * math.cos(pyaw + 0.5 * r * lag)
+            py += v * lag * math.sin(pyaw + 0.5 * r * lag)
+            pyaw += r * lag
+            e_y, e_psi, s_p = _path_errors(path, s, px, py, pyaw)
+            k_ref = float(np.interp(s_p + v * float(cfg["trk_lead"]), s, k_signed))
+            v_e = max(v, float(cfg["trk_vmin"]))
+            w_n, zeta = float(cfg["trk_omega"]), float(cfg["trk_zeta"])
+            u = -(vp.wheelbase / (v_e * v_e)) * (w_n * w_n * e_y + 2.0 * zeta * w_n * v_e * e_psi)
+            delta = math.atan(vp.wheelbase * k_ref + u)
         # Recovery guard. If the car is outside the cone corridor or badly misaligned, the plan is
         # not the priority: track the centerline directly (Stanley-style) and shed speed. This is
         # what stops a wide corner exit from becoming a 'lost' DNF. lateral_offset is + left of the
@@ -815,11 +953,13 @@ class CertifiedRacingLine(Controller):
                "plan_at3": float(np.interp(min(3.0, s[-1]), s, off)),
                "plan_at10": float(np.interp(min(10.0, s[-1]), s, off)),
                "obst_d": float(min([o.distance for o in road.obstacles], default=-1.0)),
-               "t_ff": t_ff, "t_pp": t_pp, "t_psi": t_psi, "t_damp": t_damp,
+               "t_ff": t_ff, "t_pp": t_pp, "t_psi": t_psi, "t_damp": t_damp, "obs_track": obs_track,
                "d_pre": d_pre, "d_max": d_max, "yt": y_t, "kref": k_ref, "psi": psi,
                "side": float(ldec["side"][0]) if ldec["side"] else 0.0,
-               "line": line_used, "n_mem": float(len(self.mem)), "mu_hat": float(self.mu_hat),
-               "bias": float(self.bias)}
+               "line": line_used, "cert_clear": float(line_used in (1.0, 2.0, 3.0) and not has_empty),
+               "uncertified_stations": float(np.count_nonzero(uncert)),
+               "n_mem": float(len(self.mem)), "mu_hat": float(self.mu_hat),
+               "bias": float(self.bias), "e_y": e_y, "e_psi": e_psi}
         return Command(steer=steer, throttle=throttle, brake=brake, path=path, path_frame="vehicle",
                        target_speed=v_tgt, debug=dbg)
 
@@ -834,7 +974,7 @@ class CertifiedRacingLine(Controller):
         vy, vx = float(getattr(obs, "vy", 0.0) or 0.0), float(getattr(obs, "vx", 0.0) or 0.0)
         ease = cfg["beta_ease"] > 0.5 and abs(math.atan2(vy, max(vx, 1.0))) > float(cfg["beta_ease_lim"])
         if a_des >= 0.0:
-            lat_use = min(abs(obs.ay) / max(self.mu_hat * G, 1e-6), 1.0)
+            lat_use = min(float(cfg["thr_reserve"]) * abs(obs.ay) / max(self.mu_hat * G, 1e-6), 1.0)
             cap = max(1.0 - lat_use ** 2, 0.15)           # no big throttle mid-corner
             thr = float(min(a_des / vp.max_accel, cap, 1.0))
             return (0.4 * thr if ease else thr), 0.0
