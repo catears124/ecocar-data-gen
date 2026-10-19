@@ -1,0 +1,779 @@
+{
+  "source": "experiments\\il\\results\\results.json",
+  "metrics": {
+    "optimal/b100": {
+      "condition": "optimal",
+      "budget": 100,
+      "offline_offset_mae_mm": 22.46566884427177,
+      "offline_accel_mae_mm_s2": 244.71468334503766,
+      "closed_loop_runs": 12,
+      "finish_count": 12,
+      "mean_time_finished_s": 48.30460834220475,
+      "cone_hits": 250,
+      "off_course": 0,
+      "controller_exceptions": 0
+    },
+    "optimal/b300": {
+      "condition": "optimal",
+      "budget": 300,
+      "offline_offset_mae_mm": 11.61951325348162,
+      "offline_accel_mae_mm_s2": 43.120720994006525,
+      "closed_loop_runs": 12,
+      "finish_count": 12,
+      "mean_time_finished_s": 49.444382300795674,
+      "cone_hits": 219,
+      "off_course": 0,
+      "controller_exceptions": 0
+    },
+    "optimal/b720": {
+      "condition": "optimal",
+      "budget": 720,
+      "offline_offset_mae_mm": 8.801677726001232,
+      "offline_accel_mae_mm_s2": 19.232035639638415,
+      "closed_loop_runs": 12,
+      "finish_count": 12,
+      "mean_time_finished_s": 49.54963348283277,
+      "cone_hits": 202,
+      "off_course": 0,
+      "controller_exceptions": 0
+    },
+    "approx/b100": {
+      "condition": "approx",
+      "budget": 100,
+      "offline_offset_mae_mm": 27.510802035703126,
+      "offline_accel_mae_mm_s2": 265.79823076053975,
+      "closed_loop_runs": 12,
+      "finish_count": 12,
+      "mean_time_finished_s": 62.85214766790288,
+      "cone_hits": 410,
+      "off_course": 0,
+      "controller_exceptions": 0
+    },
+    "approx/b300": {
+      "condition": "approx",
+      "budget": 300,
+      "offline_offset_mae_mm": 14.222041551792033,
+      "offline_accel_mae_mm_s2": 58.06154040456136,
+      "closed_loop_runs": 12,
+      "finish_count": 12,
+      "mean_time_finished_s": 62.5023086928488,
+      "cone_hits": 250,
+      "off_course": 0,
+      "controller_exceptions": 0
+    },
+    "approx/b720": {
+      "condition": "approx",
+      "budget": 720,
+      "offline_offset_mae_mm": 12.099069884827307,
+      "offline_accel_mae_mm_s2": 26.225997040022417,
+      "closed_loop_runs": 12,
+      "finish_count": 12,
+      "mean_time_finished_s": 62.58214482217798,
+      "cone_hits": 378,
+      "off_course": 0,
+      "controller_exceptions": 0
+    },
+    "heuristic/b100": {
+      "condition": "heuristic",
+      "budget": 100,
+      "offline_offset_mae_mm": 4.011358794461457,
+      "offline_accel_mae_mm_s2": 108.28505996606908,
+      "closed_loop_runs": 12,
+      "finish_count": 8,
+      "mean_time_finished_s": 29.287801422498248,
+      "cone_hits": 281,
+      "off_course": 42,
+      "controller_exceptions": 0
+    },
+    "heuristic/b300": {
+      "condition": "heuristic",
+      "budget": 300,
+      "offline_offset_mae_mm": 3.186227893717127,
+      "offline_accel_mae_mm_s2": 38.682742287024844,
+      "closed_loop_runs": 12,
+      "finish_count": 8,
+      "mean_time_finished_s": 29.037292030002522,
+      "cone_hits": 263,
+      "off_course": 42,
+      "controller_exceptions": 0
+    },
+    "heuristic/b720": {
+      "condition": "heuristic",
+      "budget": 720,
+      "offline_offset_mae_mm": 3.0076699229195314,
+      "offline_accel_mae_mm_s2": 26.412583047983702,
+      "closed_loop_runs": 12,
+      "finish_count": 8,
+      "mean_time_finished_s": 29.499090025754924,
+      "cone_hits": 290,
+      "off_course": 44,
+      "controller_exceptions": 0
+    },
+    "cert_control/b100": {
+      "condition": "cert_control",
+      "budget": 100,
+      "offline_offset_mae_mm": 22.46566884427177,
+      "offline_accel_mae_mm_s2": 244.71468334503766,
+      "closed_loop_runs": 12,
+      "finish_count": 12,
+      "mean_time_finished_s": 48.30460834220475,
+      "cone_hits": 250,
+      "off_course": 0,
+      "controller_exceptions": 0
+    },
+    "cert_control/b300": {
+      "condition": "cert_control",
+      "budget": 300,
+      "offline_offset_mae_mm": 11.61951325348162,
+      "offline_accel_mae_mm_s2": 43.120720994006525,
+      "closed_loop_runs": 12,
+      "finish_count": 12,
+      "mean_time_finished_s": 49.444382300795674,
+      "cone_hits": 219,
+      "off_course": 0,
+      "controller_exceptions": 0
+    },
+    "cert_control/b720": {
+      "condition": "cert_control",
+      "budget": 720,
+      "offline_offset_mae_mm": 8.801677726001232,
+      "offline_accel_mae_mm_s2": 19.232035639638415,
+      "closed_loop_runs": 12,
+      "finish_count": 12,
+      "mean_time_finished_s": 49.54963348283277,
+      "cone_hits": 202,
+      "off_course": 0,
+      "controller_exceptions": 0
+    }
+  },
+  "paired_differences": {
+    "100": {
+      "optimal-vs-approx": {
+        "paired_keys": [
+          {
+            "course": "test-course-0000",
+            "seed": 0,
+            "difference_s": -13.489947525300906
+          },
+          {
+            "course": "test-course-0000",
+            "seed": 1,
+            "difference_s": -13.751820560598105
+          },
+          {
+            "course": "test-course-0000",
+            "seed": 2,
+            "difference_s": -12.588649374486835
+          },
+          {
+            "course": "test-course-0001",
+            "seed": 0,
+            "difference_s": -17.55037257473441
+          },
+          {
+            "course": "test-course-0001",
+            "seed": 1,
+            "difference_s": -18.603315244428785
+          },
+          {
+            "course": "test-course-0001",
+            "seed": 2,
+            "difference_s": -12.306485709114249
+          },
+          {
+            "course": "test-course-0002",
+            "seed": 0,
+            "difference_s": -12.261497916238227
+          },
+          {
+            "course": "test-course-0002",
+            "seed": 1,
+            "difference_s": -12.849373235387809
+          },
+          {
+            "course": "test-course-0002",
+            "seed": 2,
+            "difference_s": -13.817700007567005
+          },
+          {
+            "course": "test-course-0003",
+            "seed": 0,
+            "difference_s": -17.332087449641314
+          },
+          {
+            "course": "test-course-0003",
+            "seed": 1,
+            "difference_s": -18.587992656385318
+          },
+          {
+            "course": "test-course-0003",
+            "seed": 2,
+            "difference_s": -11.431229654494452
+          }
+        ],
+        "course_differences": {
+          "test-course-0000": -13.276805820128615,
+          "test-course-0001": -16.15339117609248,
+          "test-course-0002": -12.97619038639768,
+          "test-course-0003": -15.783769920173695
+        },
+        "n_courses": 4,
+        "mean_difference_s": -14.547539325698118,
+        "bootstrap_95_ci_over_courses": [
+          -15.968580548133087,
+          -13.126498103263149
+        ]
+      },
+      "optimal-vs-heuristic": {
+        "paired_keys": [
+          {
+            "course": "test-course-0000",
+            "seed": 0,
+            "difference_s": 24.357365310935997
+          },
+          {
+            "course": "test-course-0000",
+            "seed": 1,
+            "difference_s": 26.359007805455768
+          },
+          {
+            "course": "test-course-0001",
+            "seed": 0,
+            "difference_s": 13.944049725498381
+          },
+          {
+            "course": "test-course-0001",
+            "seed": 1,
+            "difference_s": 17.487009930123037
+          },
+          {
+            "course": "test-course-0001",
+            "seed": 2,
+            "difference_s": 19.912611188878927
+          },
+          {
+            "course": "test-course-0003",
+            "seed": 0,
+            "difference_s": 20.275880947566034
+          },
+          {
+            "course": "test-course-0003",
+            "seed": 1,
+            "difference_s": 20.758427636547413
+          },
+          {
+            "course": "test-course-0003",
+            "seed": 2,
+            "difference_s": 24.08199882816764
+          }
+        ],
+        "course_differences": {
+          "test-course-0000": 25.358186558195882,
+          "test-course-0001": 17.114556948166783,
+          "test-course-0003": 21.705435804093696
+        },
+        "n_courses": 3,
+        "mean_difference_s": 21.392726436818787,
+        "bootstrap_95_ci_over_courses": [
+          17.114556948166783,
+          25.358186558195882
+        ]
+      },
+      "optimal-vs-cert_control": {
+        "paired_keys": [
+          {
+            "course": "test-course-0000",
+            "seed": 0,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0000",
+            "seed": 1,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0000",
+            "seed": 2,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0001",
+            "seed": 0,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0001",
+            "seed": 1,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0001",
+            "seed": 2,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0002",
+            "seed": 0,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0002",
+            "seed": 1,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0002",
+            "seed": 2,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0003",
+            "seed": 0,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0003",
+            "seed": 1,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0003",
+            "seed": 2,
+            "difference_s": 0.0
+          }
+        ],
+        "course_differences": {
+          "test-course-0000": 0.0,
+          "test-course-0001": 0.0,
+          "test-course-0002": 0.0,
+          "test-course-0003": 0.0
+        },
+        "n_courses": 4,
+        "mean_difference_s": 0.0,
+        "bootstrap_95_ci_over_courses": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "300": {
+      "optimal-vs-approx": {
+        "paired_keys": [
+          {
+            "course": "test-course-0000",
+            "seed": 0,
+            "difference_s": -12.338260890658809
+          },
+          {
+            "course": "test-course-0000",
+            "seed": 1,
+            "difference_s": -12.423325679607984
+          },
+          {
+            "course": "test-course-0000",
+            "seed": 2,
+            "difference_s": -11.89075545091201
+          },
+          {
+            "course": "test-course-0001",
+            "seed": 0,
+            "difference_s": -14.269635468020525
+          },
+          {
+            "course": "test-course-0001",
+            "seed": 1,
+            "difference_s": -15.455140967579588
+          },
+          {
+            "course": "test-course-0001",
+            "seed": 2,
+            "difference_s": -12.868994133068213
+          },
+          {
+            "course": "test-course-0002",
+            "seed": 0,
+            "difference_s": -11.527452342426656
+          },
+          {
+            "course": "test-course-0002",
+            "seed": 1,
+            "difference_s": -11.7985660557149
+          },
+          {
+            "course": "test-course-0002",
+            "seed": 2,
+            "difference_s": -11.736907366014812
+          },
+          {
+            "course": "test-course-0003",
+            "seed": 0,
+            "difference_s": -14.133229629219223
+          },
+          {
+            "course": "test-course-0003",
+            "seed": 1,
+            "difference_s": -15.189442353719038
+          },
+          {
+            "course": "test-course-0003",
+            "seed": 2,
+            "difference_s": -13.063406367695684
+          }
+        ],
+        "course_differences": {
+          "test-course-0000": -12.217447340392935,
+          "test-course-0001": -14.197923522889441,
+          "test-course-0002": -11.687641921385456,
+          "test-course-0003": -14.128692783544649
+        },
+        "n_courses": 4,
+        "mean_difference_s": -13.05792639205312,
+        "bootstrap_95_ci_over_courses": [
+          -14.163308153217045,
+          -11.952544630889196
+        ]
+      },
+      "optimal-vs-heuristic": {
+        "paired_keys": [
+          {
+            "course": "test-course-0000",
+            "seed": 0,
+            "difference_s": 26.541672493388255
+          },
+          {
+            "course": "test-course-0000",
+            "seed": 1,
+            "difference_s": 26.28935963967158
+          },
+          {
+            "course": "test-course-0001",
+            "seed": 0,
+            "difference_s": 16.790376331204016
+          },
+          {
+            "course": "test-course-0001",
+            "seed": 1,
+            "difference_s": 19.21365418977986
+          },
+          {
+            "course": "test-course-0001",
+            "seed": 2,
+            "difference_s": 21.691383825910215
+          },
+          {
+            "course": "test-course-0003",
+            "seed": 0,
+            "difference_s": 23.225647109233886
+          },
+          {
+            "course": "test-course-0003",
+            "seed": 1,
+            "difference_s": 21.761365293126772
+          },
+          {
+            "course": "test-course-0003",
+            "seed": 2,
+            "difference_s": 24.47898011931129
+          }
+        ],
+        "course_differences": {
+          "test-course-0000": 26.415516066529918,
+          "test-course-0001": 19.23180478229803,
+          "test-course-0003": 23.155330840557315
+        },
+        "n_courses": 3,
+        "mean_difference_s": 22.934217229795085,
+        "bootstrap_95_ci_over_courses": [
+          19.23180478229803,
+          26.415516066529918
+        ]
+      },
+      "optimal-vs-cert_control": {
+        "paired_keys": [
+          {
+            "course": "test-course-0000",
+            "seed": 0,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0000",
+            "seed": 1,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0000",
+            "seed": 2,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0001",
+            "seed": 0,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0001",
+            "seed": 1,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0001",
+            "seed": 2,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0002",
+            "seed": 0,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0002",
+            "seed": 1,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0002",
+            "seed": 2,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0003",
+            "seed": 0,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0003",
+            "seed": 1,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0003",
+            "seed": 2,
+            "difference_s": 0.0
+          }
+        ],
+        "course_differences": {
+          "test-course-0000": 0.0,
+          "test-course-0001": 0.0,
+          "test-course-0002": 0.0,
+          "test-course-0003": 0.0
+        },
+        "n_courses": 4,
+        "mean_difference_s": 0.0,
+        "bootstrap_95_ci_over_courses": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "720": {
+      "optimal-vs-approx": {
+        "paired_keys": [
+          {
+            "course": "test-course-0000",
+            "seed": 0,
+            "difference_s": -12.576785745323207
+          },
+          {
+            "course": "test-course-0000",
+            "seed": 1,
+            "difference_s": -12.896041629092338
+          },
+          {
+            "course": "test-course-0000",
+            "seed": 2,
+            "difference_s": -12.510309492234782
+          },
+          {
+            "course": "test-course-0001",
+            "seed": 0,
+            "difference_s": -14.371739079807526
+          },
+          {
+            "course": "test-course-0001",
+            "seed": 1,
+            "difference_s": -13.694631336348579
+          },
+          {
+            "course": "test-course-0001",
+            "seed": 2,
+            "difference_s": -13.567911859227074
+          },
+          {
+            "course": "test-course-0002",
+            "seed": 0,
+            "difference_s": -11.742482136441502
+          },
+          {
+            "course": "test-course-0002",
+            "seed": 1,
+            "difference_s": -11.282385069408342
+          },
+          {
+            "course": "test-course-0002",
+            "seed": 2,
+            "difference_s": -12.148677816044454
+          },
+          {
+            "course": "test-course-0003",
+            "seed": 0,
+            "difference_s": -14.327333156928105
+          },
+          {
+            "course": "test-course-0003",
+            "seed": 1,
+            "difference_s": -13.75182079622985
+          },
+          {
+            "course": "test-course-0003",
+            "seed": 2,
+            "difference_s": -13.52001795505683
+          }
+        ],
+        "course_differences": {
+          "test-course-0000": -12.661045622216776,
+          "test-course-0001": -13.878094091794393,
+          "test-course-0002": -11.7245150072981,
+          "test-course-0003": -13.866390636071594
+        },
+        "n_courses": 4,
+        "mean_difference_s": -13.032511339345216,
+        "bootstrap_95_ci_over_courses": [
+          -13.872242363932994,
+          -12.192780314757439
+        ]
+      },
+      "optimal-vs-heuristic": {
+        "paired_keys": [
+          {
+            "course": "test-course-0000",
+            "seed": 0,
+            "difference_s": 25.133674949268677
+          },
+          {
+            "course": "test-course-0000",
+            "seed": 1,
+            "difference_s": 25.7185140690866
+          },
+          {
+            "course": "test-course-0001",
+            "seed": 0,
+            "difference_s": 18.85997351058751
+          },
+          {
+            "course": "test-course-0001",
+            "seed": 1,
+            "difference_s": 20.022817521044097
+          },
+          {
+            "course": "test-course-0001",
+            "seed": 2,
+            "difference_s": 18.262062062165057
+          },
+          {
+            "course": "test-course-0003",
+            "seed": 0,
+            "difference_s": 22.311208868688208
+          },
+          {
+            "course": "test-course-0003",
+            "seed": 1,
+            "difference_s": 23.793450503040827
+          },
+          {
+            "course": "test-course-0003",
+            "seed": 2,
+            "difference_s": 23.59070394563982
+          }
+        ],
+        "course_differences": {
+          "test-course-0000": 25.426094509177638,
+          "test-course-0001": 19.04828436459889,
+          "test-course-0003": 23.231787772456286
+        },
+        "n_courses": 3,
+        "mean_difference_s": 22.56872221541094,
+        "bootstrap_95_ci_over_courses": [
+          19.04828436459889,
+          25.42609450917764
+        ]
+      },
+      "optimal-vs-cert_control": {
+        "paired_keys": [
+          {
+            "course": "test-course-0000",
+            "seed": 0,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0000",
+            "seed": 1,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0000",
+            "seed": 2,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0001",
+            "seed": 0,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0001",
+            "seed": 1,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0001",
+            "seed": 2,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0002",
+            "seed": 0,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0002",
+            "seed": 1,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0002",
+            "seed": 2,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0003",
+            "seed": 0,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0003",
+            "seed": 1,
+            "difference_s": 0.0
+          },
+          {
+            "course": "test-course-0003",
+            "seed": 2,
+            "difference_s": 0.0
+          }
+        ],
+        "course_differences": {
+          "test-course-0000": 0.0,
+          "test-course-0001": 0.0,
+          "test-course-0002": 0.0,
+          "test-course-0003": 0.0
+        },
+        "n_courses": 4,
+        "mean_difference_s": 0.0,
+        "bootstrap_95_ci_over_courses": [
+          0.0,
+          0.0
+        ]
+      }
+    }
+  },
+  "failures": []
+}

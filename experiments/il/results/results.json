@@ -1,0 +1,2796 @@
+{
+  "corpus": "datasets\\optimal-full",
+  "tracks": [
+    "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+    "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+    "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+    "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+  ],
+  "conditions": [
+    "optimal",
+    "approx",
+    "heuristic",
+    "cert_control"
+  ],
+  "budgets": [
+    100,
+    300,
+    720
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "runs": [
+    {
+      "condition": "optimal",
+      "budget": 100,
+      "seed": 0,
+      "weights": "experiments\\il\\results\\weights\\optimal_b100_s0.npz",
+      "offline": {
+        "condition": "optimal",
+        "budget": 100,
+        "seed": 0,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\optimal_b100_s0.npz",
+        "offset_mae_mm": 25.614385612928356,
+        "accel_mae_mm_s2": 302.73631747188375
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "optimal",
+            "budget": 100,
+            "seed": 0,
+            "finished": true,
+            "time_s": 46.158516268139316,
+            "cone_hits": 2,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "optimal",
+            "budget": 100,
+            "seed": 0,
+            "finished": true,
+            "time_s": 49.05226273890251,
+            "cone_hits": 22,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "optimal",
+            "budget": 100,
+            "seed": 0,
+            "finished": true,
+            "time_s": 42.75536816897239,
+            "cone_hits": 0,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "optimal",
+            "budget": 100,
+            "seed": 0,
+            "finished": true,
+            "time_s": 50.22753977628255,
+            "cone_hits": 23,
+            "off_course": 0,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "optimal",
+      "budget": 100,
+      "seed": 1,
+      "weights": "experiments\\il\\results\\weights\\optimal_b100_s1.npz",
+      "offline": {
+        "condition": "optimal",
+        "budget": 100,
+        "seed": 1,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\optimal_b100_s1.npz",
+        "offset_mae_mm": 18.99762239851526,
+        "accel_mae_mm_s2": 297.86943230133863
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "optimal",
+            "budget": 100,
+            "seed": 1,
+            "finished": true,
+            "time_s": 47.968310020564374,
+            "cone_hits": 8,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "optimal",
+            "budget": 100,
+            "seed": 1,
+            "finished": true,
+            "time_s": 50.45168356672569,
+            "cone_hits": 73,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "optimal",
+            "budget": 100,
+            "seed": 1,
+            "finished": true,
+            "time_s": 43.95907294030362,
+            "cone_hits": 23,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "optimal",
+            "budget": 100,
+            "seed": 1,
+            "finished": true,
+            "time_s": 50.88433935275187,
+            "cone_hits": 67,
+            "off_course": 0,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "optimal",
+      "budget": 100,
+      "seed": 2,
+      "weights": "experiments\\il\\results\\weights\\optimal_b100_s2.npz",
+      "offline": {
+        "condition": "optimal",
+        "budget": 100,
+        "seed": 2,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\optimal_b100_s2.npz",
+        "offset_mae_mm": 22.78499852137169,
+        "accel_mae_mm_s2": 133.53830026189056
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "optimal",
+            "budget": 100,
+            "seed": 2,
+            "finished": true,
+            "time_s": 47.43709265022389,
+            "cone_hits": 0,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "optimal",
+            "budget": 100,
+            "seed": 2,
+            "finished": true,
+            "time_s": 53.175451241340916,
+            "cone_hits": 14,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "optimal",
+            "budget": 100,
+            "seed": 2,
+            "finished": true,
+            "time_s": 44.02500359379796,
+            "cone_hits": 0,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "optimal",
+            "budget": 100,
+            "seed": 2,
+            "finished": true,
+            "time_s": 53.560659788451964,
+            "cone_hits": 18,
+            "off_course": 0,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "optimal",
+      "budget": 300,
+      "seed": 0,
+      "weights": "experiments\\il\\results\\weights\\optimal_b300_s0.npz",
+      "offline": {
+        "condition": "optimal",
+        "budget": 300,
+        "seed": 0,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\optimal_b300_s0.npz",
+        "offset_mae_mm": 12.320480244683525,
+        "accel_mae_mm_s2": 49.605158875552725
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "optimal",
+            "budget": 300,
+            "seed": 0,
+            "finished": true,
+            "time_s": 47.24306737472615,
+            "cone_hits": 10,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "optimal",
+            "budget": 300,
+            "seed": 0,
+            "finished": true,
+            "time_s": 52.6080868253449,
+            "cone_hits": 29,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "optimal",
+            "budget": 300,
+            "seed": 0,
+            "finished": true,
+            "time_s": 44.33088044941461,
+            "cone_hits": 5,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "optimal",
+            "budget": 300,
+            "seed": 0,
+            "finished": true,
+            "time_s": 53.12826572667726,
+            "cone_hits": 30,
+            "off_course": 0,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "optimal",
+      "budget": 300,
+      "seed": 1,
+      "weights": "experiments\\il\\results\\weights\\optimal_b300_s1.npz",
+      "offline": {
+        "condition": "optimal",
+        "budget": 300,
+        "seed": 1,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\optimal_b300_s1.npz",
+        "offset_mae_mm": 12.361792969536102,
+        "accel_mae_mm_s2": 36.13214918864977
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "optimal",
+            "budget": 300,
+            "seed": 1,
+            "finished": true,
+            "time_s": 47.410846093445116,
+            "cone_hits": 13,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "optimal",
+            "budget": 300,
+            "seed": 1,
+            "finished": true,
+            "time_s": 51.47669067999285,
+            "cone_hits": 58,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "optimal",
+            "budget": 300,
+            "seed": 1,
+            "finished": true,
+            "time_s": 44.185489674901206,
+            "cone_hits": 11,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "optimal",
+            "budget": 300,
+            "seed": 1,
+            "finished": true,
+            "time_s": 51.788163068505376,
+            "cone_hits": 57,
+            "off_course": 0,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "optimal",
+      "budget": 300,
+      "seed": 2,
+      "weights": "experiments\\il\\results\\weights\\optimal_b300_s2.npz",
+      "offline": {
+        "condition": "optimal",
+        "budget": 300,
+        "seed": 2,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\optimal_b300_s2.npz",
+        "offset_mae_mm": 10.176266546225227,
+        "accel_mae_mm_s2": 43.624854917817096
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "optimal",
+            "budget": 300,
+            "seed": 2,
+            "finished": true,
+            "time_s": 48.01844108463795,
+            "cone_hits": 6,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "optimal",
+            "budget": 300,
+            "seed": 2,
+            "finished": true,
+            "time_s": 54.25350148139172,
+            "cone_hits": 0,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "optimal",
+            "budget": 300,
+            "seed": 2,
+            "finished": true,
+            "time_s": 44.50700115894833,
+            "cone_hits": 0,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "optimal",
+            "budget": 300,
+            "seed": 2,
+            "finished": true,
+            "time_s": 54.38215399156267,
+            "cone_hits": 0,
+            "off_course": 0,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "optimal",
+      "budget": 720,
+      "seed": 0,
+      "weights": "experiments\\il\\results\\weights\\optimal_b720_s0.npz",
+      "offline": {
+        "condition": "optimal",
+        "budget": 720,
+        "seed": 0,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\optimal_b720_s0.npz",
+        "offset_mae_mm": 9.966677551842084,
+        "accel_mae_mm_s2": 18.430798268211028
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "optimal",
+            "budget": 720,
+            "seed": 0,
+            "finished": true,
+            "time_s": 47.20917504598335,
+            "cone_hits": 17,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "optimal",
+            "budget": 720,
+            "seed": 0,
+            "finished": true,
+            "time_s": 52.40204338049634,
+            "cone_hits": 51,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "optimal",
+            "budget": 720,
+            "seed": 0,
+            "finished": true,
+            "time_s": 44.27797255223318,
+            "cone_hits": 3,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "optimal",
+            "budget": 720,
+            "seed": 0,
+            "finished": true,
+            "time_s": 53.03861142511779,
+            "cone_hits": 43,
+            "off_course": 0,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "optimal",
+      "budget": 720,
+      "seed": 1,
+      "weights": "experiments\\il\\results\\weights\\optimal_b720_s1.npz",
+      "offline": {
+        "condition": "optimal",
+        "budget": 720,
+        "seed": 1,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\optimal_b720_s1.npz",
+        "offset_mae_mm": 8.389876325666947,
+        "accel_mae_mm_s2": 16.852749004683474
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "optimal",
+            "budget": 720,
+            "seed": 1,
+            "finished": true,
+            "time_s": 47.46871466975396,
+            "cone_hits": 10,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "optimal",
+            "budget": 720,
+            "seed": 1,
+            "finished": true,
+            "time_s": 53.30407819225529,
+            "cone_hits": 37,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "optimal",
+            "budget": 720,
+            "seed": 1,
+            "finished": true,
+            "time_s": 44.61843580657237,
+            "cone_hits": 3,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "optimal",
+            "budget": 720,
+            "seed": 1,
+            "finished": true,
+            "time_s": 53.694632516547074,
+            "cone_hits": 37,
+            "off_course": 0,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "optimal",
+      "budget": 720,
+      "seed": 2,
+      "weights": "experiments\\il\\results\\weights\\optimal_b720_s2.npz",
+      "offline": {
+        "condition": "optimal",
+        "budget": 720,
+        "seed": 2,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\optimal_b720_s2.npz",
+        "offset_mae_mm": 8.048479300494666,
+        "accel_mae_mm_s2": 22.41255964602075
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "optimal",
+            "budget": 720,
+            "seed": 2,
+            "finished": true,
+            "time_s": 47.6999103400955,
+            "cone_hits": 0,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "optimal",
+            "budget": 720,
+            "seed": 2,
+            "finished": true,
+            "time_s": 53.07411597160189,
+            "cone_hits": 1,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "optimal",
+            "budget": 720,
+            "seed": 2,
+            "finished": true,
+            "time_s": 44.314157459531906,
+            "cone_hits": 0,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "optimal",
+            "budget": 720,
+            "seed": 2,
+            "finished": true,
+            "time_s": 53.4937544338045,
+            "cone_hits": 0,
+            "off_course": 0,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "approx",
+      "budget": 100,
+      "seed": 0,
+      "weights": "experiments\\il\\results\\weights\\approx_b100_s0.npz",
+      "offline": {
+        "condition": "approx",
+        "budget": 100,
+        "seed": 0,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\approx_b100_s0.npz",
+        "offset_mae_mm": 34.575850690210096,
+        "accel_mae_mm_s2": 298.2821795160362
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "approx",
+            "budget": 100,
+            "seed": 0,
+            "finished": true,
+            "time_s": 59.64846379344022,
+            "cone_hits": 4,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "approx",
+            "budget": 100,
+            "seed": 0,
+            "finished": true,
+            "time_s": 66.60263531363692,
+            "cone_hits": 38,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "approx",
+            "budget": 100,
+            "seed": 0,
+            "finished": true,
+            "time_s": 55.016866085210616,
+            "cone_hits": 7,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "approx",
+            "budget": 100,
+            "seed": 0,
+            "finished": true,
+            "time_s": 67.55962722592386,
+            "cone_hits": 39,
+            "off_course": 0,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "approx",
+      "budget": 100,
+      "seed": 1,
+      "weights": "experiments\\il\\results\\weights\\approx_b100_s1.npz",
+      "offline": {
+        "condition": "approx",
+        "budget": 100,
+        "seed": 1,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\approx_b100_s1.npz",
+        "offset_mae_mm": 23.84032691343863,
+        "accel_mae_mm_s2": 262.5626230727635
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "approx",
+            "budget": 100,
+            "seed": 1,
+            "finished": true,
+            "time_s": 61.72013058116248,
+            "cone_hits": 19,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "approx",
+            "budget": 100,
+            "seed": 1,
+            "finished": true,
+            "time_s": 69.05499881115448,
+            "cone_hits": 66,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "approx",
+            "budget": 100,
+            "seed": 1,
+            "finished": true,
+            "time_s": 56.80844617569143,
+            "cone_hits": 24,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "approx",
+            "budget": 100,
+            "seed": 1,
+            "finished": true,
+            "time_s": 69.47233200913719,
+            "cone_hits": 64,
+            "off_course": 0,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "approx",
+      "budget": 100,
+      "seed": 2,
+      "weights": "experiments\\il\\results\\weights\\approx_b100_s2.npz",
+      "offline": {
+        "condition": "approx",
+        "budget": 100,
+        "seed": 2,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\approx_b100_s2.npz",
+        "offset_mae_mm": 24.116228503460658,
+        "accel_mae_mm_s2": 236.54988969281968
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "approx",
+            "budget": 100,
+            "seed": 2,
+            "finished": true,
+            "time_s": 60.02574202471072,
+            "cone_hits": 11,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "approx",
+            "budget": 100,
+            "seed": 2,
+            "finished": true,
+            "time_s": 65.48193695045516,
+            "cone_hits": 60,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "approx",
+            "budget": 100,
+            "seed": 2,
+            "finished": true,
+            "time_s": 57.84270360136497,
+            "cone_hits": 17,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "approx",
+            "budget": 100,
+            "seed": 2,
+            "finished": true,
+            "time_s": 64.99188944294642,
+            "cone_hits": 61,
+            "off_course": 0,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "approx",
+      "budget": 300,
+      "seed": 0,
+      "weights": "experiments\\il\\results\\weights\\approx_b300_s0.npz",
+      "offline": {
+        "condition": "approx",
+        "budget": 300,
+        "seed": 0,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\approx_b300_s0.npz",
+        "offset_mae_mm": 13.969398288204422,
+        "accel_mae_mm_s2": 44.23859959295712
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "approx",
+            "budget": 300,
+            "seed": 0,
+            "finished": true,
+            "time_s": 59.58132826538496,
+            "cone_hits": 18,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "approx",
+            "budget": 300,
+            "seed": 0,
+            "finished": true,
+            "time_s": 66.87772229336542,
+            "cone_hits": 12,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "approx",
+            "budget": 300,
+            "seed": 0,
+            "finished": true,
+            "time_s": 55.85833279184126,
+            "cone_hits": 0,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "approx",
+            "budget": 300,
+            "seed": 0,
+            "finished": true,
+            "time_s": 67.26149535589649,
+            "cone_hits": 19,
+            "off_course": 0,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "approx",
+      "budget": 300,
+      "seed": 1,
+      "weights": "experiments\\il\\results\\weights\\approx_b300_s1.npz",
+      "offline": {
+        "condition": "approx",
+        "budget": 300,
+        "seed": 1,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\approx_b300_s1.npz",
+        "offset_mae_mm": 17.337830274273085,
+        "accel_mae_mm_s2": 73.87947972420142
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "approx",
+            "budget": 300,
+            "seed": 1,
+            "finished": true,
+            "time_s": 59.8341717730531,
+            "cone_hits": 27,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "approx",
+            "budget": 300,
+            "seed": 1,
+            "finished": true,
+            "time_s": 66.93183164757244,
+            "cone_hits": 40,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "approx",
+            "budget": 300,
+            "seed": 1,
+            "finished": true,
+            "time_s": 55.984055730616106,
+            "cone_hits": 10,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "approx",
+            "budget": 300,
+            "seed": 1,
+            "finished": true,
+            "time_s": 66.97760542222441,
+            "cone_hits": 42,
+            "off_course": 0,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "approx",
+      "budget": 300,
+      "seed": 2,
+      "weights": "experiments\\il\\results\\weights\\approx_b300_s2.npz",
+      "offline": {
+        "condition": "approx",
+        "budget": 300,
+        "seed": 2,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\approx_b300_s2.npz",
+        "offset_mae_mm": 11.358896092898595,
+        "accel_mae_mm_s2": 56.06654189652556
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "approx",
+            "budget": 300,
+            "seed": 2,
+            "finished": true,
+            "time_s": 59.90919653554996,
+            "cone_hits": 19,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "approx",
+            "budget": 300,
+            "seed": 2,
+            "finished": true,
+            "time_s": 67.12249561445994,
+            "cone_hits": 23,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "approx",
+            "budget": 300,
+            "seed": 2,
+            "finished": true,
+            "time_s": 56.24390852496314,
+            "cone_hits": 8,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "approx",
+            "budget": 300,
+            "seed": 2,
+            "finished": true,
+            "time_s": 67.44556035925835,
+            "cone_hits": 32,
+            "off_course": 0,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "approx",
+      "budget": 720,
+      "seed": 0,
+      "weights": "experiments\\il\\results\\weights\\approx_b720_s0.npz",
+      "offline": {
+        "condition": "approx",
+        "budget": 720,
+        "seed": 0,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\approx_b720_s0.npz",
+        "offset_mae_mm": 9.335034150156007,
+        "accel_mae_mm_s2": 18.62934806196426
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "approx",
+            "budget": 720,
+            "seed": 0,
+            "finished": true,
+            "time_s": 59.78596079130656,
+            "cone_hits": 15,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "approx",
+            "budget": 720,
+            "seed": 0,
+            "finished": true,
+            "time_s": 66.77378246030386,
+            "cone_hits": 47,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "approx",
+            "budget": 720,
+            "seed": 0,
+            "finished": true,
+            "time_s": 56.02045468867468,
+            "cone_hits": 8,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "approx",
+            "budget": 720,
+            "seed": 0,
+            "finished": true,
+            "time_s": 67.3659445820459,
+            "cone_hits": 41,
+            "off_course": 0,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "approx",
+      "budget": 720,
+      "seed": 1,
+      "weights": "experiments\\il\\results\\weights\\approx_b720_s1.npz",
+      "offline": {
+        "condition": "approx",
+        "budget": 720,
+        "seed": 1,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\approx_b720_s1.npz",
+        "offset_mae_mm": 12.672951428733409,
+        "accel_mae_mm_s2": 26.12128428026649
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "approx",
+            "budget": 720,
+            "seed": 1,
+            "finished": true,
+            "time_s": 60.364756298846295,
+            "cone_hits": 21,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "approx",
+            "budget": 720,
+            "seed": 1,
+            "finished": true,
+            "time_s": 66.99870952860387,
+            "cone_hits": 59,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "approx",
+            "budget": 720,
+            "seed": 1,
+            "finished": true,
+            "time_s": 55.90082087598071,
+            "cone_hits": 18,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "approx",
+            "budget": 720,
+            "seed": 1,
+            "finished": true,
+            "time_s": 67.44645331277692,
+            "cone_hits": 52,
+            "off_course": 0,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "approx",
+      "budget": 720,
+      "seed": 2,
+      "weights": "experiments\\il\\results\\weights\\approx_b720_s2.npz",
+      "offline": {
+        "condition": "approx",
+        "budget": 720,
+        "seed": 2,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\approx_b720_s2.npz",
+        "offset_mae_mm": 14.289224075592498,
+        "accel_mae_mm_s2": 33.92735877783649
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "approx",
+            "budget": 720,
+            "seed": 2,
+            "finished": true,
+            "time_s": 60.21021983233028,
+            "cone_hits": 13,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "approx",
+            "budget": 720,
+            "seed": 2,
+            "finished": true,
+            "time_s": 66.64202783082897,
+            "cone_hits": 48,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "approx",
+            "budget": 720,
+            "seed": 2,
+            "finished": true,
+            "time_s": 56.46283527557636,
+            "cone_hits": 9,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "approx",
+            "budget": 720,
+            "seed": 2,
+            "finished": true,
+            "time_s": 67.01377238886133,
+            "cone_hits": 47,
+            "off_course": 0,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "heuristic",
+      "budget": 100,
+      "seed": 0,
+      "weights": "experiments\\il\\results\\weights\\heuristic_b100_s0.npz",
+      "offline": {
+        "condition": "heuristic",
+        "budget": 100,
+        "seed": 0,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\heuristic_b100_s0.npz",
+        "offset_mae_mm": 4.682130837861076,
+        "accel_mae_mm_s2": 117.89097081224925
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "heuristic",
+            "budget": 100,
+            "seed": 0,
+            "finished": true,
+            "time_s": 21.80115095720332,
+            "cone_hits": 22,
+            "off_course": 2,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "heuristic",
+            "budget": 100,
+            "seed": 0,
+            "finished": true,
+            "time_s": 35.10821301340413,
+            "cone_hits": 32,
+            "off_course": 5,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "heuristic",
+            "budget": 100,
+            "seed": 0,
+            "finished": false,
+            "time_s": null,
+            "cone_hits": 6,
+            "off_course": 2,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "heuristic",
+            "budget": 100,
+            "seed": 0,
+            "finished": true,
+            "time_s": 29.951658828716514,
+            "cone_hits": 35,
+            "off_course": 5,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "heuristic",
+      "budget": 100,
+      "seed": 1,
+      "weights": "experiments\\il\\results\\weights\\heuristic_b100_s1.npz",
+      "offline": {
+        "condition": "heuristic",
+        "budget": 100,
+        "seed": 1,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\heuristic_b100_s1.npz",
+        "offset_mae_mm": 3.2130403862035326,
+        "accel_mae_mm_s2": 91.20639361245176
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "heuristic",
+            "budget": 100,
+            "seed": 1,
+            "finished": true,
+            "time_s": 21.609302215108606,
+            "cone_hits": 27,
+            "off_course": 2,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "heuristic",
+            "budget": 100,
+            "seed": 1,
+            "finished": true,
+            "time_s": 32.964673636602654,
+            "cone_hits": 34,
+            "off_course": 6,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "heuristic",
+            "budget": 100,
+            "seed": 1,
+            "finished": false,
+            "time_s": null,
+            "cone_hits": 6,
+            "off_course": 2,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "heuristic",
+            "budget": 100,
+            "seed": 1,
+            "finished": true,
+            "time_s": 30.12591171620446,
+            "cone_hits": 39,
+            "off_course": 4,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "heuristic",
+      "budget": 100,
+      "seed": 2,
+      "weights": "experiments\\il\\results\\weights\\heuristic_b100_s2.npz",
+      "offline": {
+        "condition": "heuristic",
+        "budget": 100,
+        "seed": 2,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\heuristic_b100_s2.npz",
+        "offset_mae_mm": 4.13890515931976,
+        "accel_mae_mm_s2": 115.75781547350626
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "heuristic",
+            "budget": 100,
+            "seed": 2,
+            "finished": false,
+            "time_s": null,
+            "cone_hits": 8,
+            "off_course": 1,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "heuristic",
+            "budget": 100,
+            "seed": 2,
+            "finished": true,
+            "time_s": 33.26284005246199,
+            "cone_hits": 35,
+            "off_course": 6,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "heuristic",
+            "budget": 100,
+            "seed": 2,
+            "finished": false,
+            "time_s": null,
+            "cone_hits": 6,
+            "off_course": 2,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "heuristic",
+            "budget": 100,
+            "seed": 2,
+            "finished": true,
+            "time_s": 29.478660960284323,
+            "cone_hits": 31,
+            "off_course": 5,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "heuristic",
+      "budget": 300,
+      "seed": 0,
+      "weights": "experiments\\il\\results\\weights\\heuristic_b300_s0.npz",
+      "offline": {
+        "condition": "heuristic",
+        "budget": 300,
+        "seed": 0,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\heuristic_b300_s0.npz",
+        "offset_mae_mm": 3.711631751008281,
+        "accel_mae_mm_s2": 26.95344155168683
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "heuristic",
+            "budget": 300,
+            "seed": 0,
+            "finished": true,
+            "time_s": 20.701394881337897,
+            "cone_hits": 24,
+            "off_course": 2,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "heuristic",
+            "budget": 300,
+            "seed": 0,
+            "finished": true,
+            "time_s": 35.81771049414088,
+            "cone_hits": 36,
+            "off_course": 6,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "heuristic",
+            "budget": 300,
+            "seed": 0,
+            "finished": false,
+            "time_s": null,
+            "cone_hits": 6,
+            "off_course": 2,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "heuristic",
+            "budget": 300,
+            "seed": 0,
+            "finished": true,
+            "time_s": 29.902618617443377,
+            "cone_hits": 36,
+            "off_course": 5,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "heuristic",
+      "budget": 300,
+      "seed": 1,
+      "weights": "experiments\\il\\results\\weights\\heuristic_b300_s1.npz",
+      "offline": {
+        "condition": "heuristic",
+        "budget": 300,
+        "seed": 1,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\heuristic_b300_s1.npz",
+        "offset_mae_mm": 2.544679226516485,
+        "accel_mae_mm_s2": 44.7494963331452
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "heuristic",
+            "budget": 300,
+            "seed": 1,
+            "finished": true,
+            "time_s": 21.121486453773535,
+            "cone_hits": 18,
+            "off_course": 2,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "heuristic",
+            "budget": 300,
+            "seed": 1,
+            "finished": true,
+            "time_s": 32.26303649021299,
+            "cone_hits": 27,
+            "off_course": 6,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "heuristic",
+            "budget": 300,
+            "seed": 1,
+            "finished": false,
+            "time_s": null,
+            "cone_hits": 6,
+            "off_course": 2,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "heuristic",
+            "budget": 300,
+            "seed": 1,
+            "finished": true,
+            "time_s": 30.026797775378604,
+            "cone_hits": 35,
+            "off_course": 4,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "heuristic",
+      "budget": 300,
+      "seed": 2,
+      "weights": "experiments\\il\\results\\weights\\heuristic_b300_s2.npz",
+      "offline": {
+        "condition": "heuristic",
+        "budget": 300,
+        "seed": 2,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\heuristic_b300_s2.npz",
+        "offset_mae_mm": 3.3023727036266144,
+        "accel_mae_mm_s2": 44.34528897624249
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "heuristic",
+            "budget": 300,
+            "seed": 2,
+            "finished": false,
+            "time_s": null,
+            "cone_hits": 7,
+            "off_course": 1,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "heuristic",
+            "budget": 300,
+            "seed": 2,
+            "finished": true,
+            "time_s": 32.56211765548151,
+            "cone_hits": 27,
+            "off_course": 6,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "heuristic",
+            "budget": 300,
+            "seed": 2,
+            "finished": false,
+            "time_s": null,
+            "cone_hits": 6,
+            "off_course": 2,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "heuristic",
+            "budget": 300,
+            "seed": 2,
+            "finished": true,
+            "time_s": 29.903173872251376,
+            "cone_hits": 35,
+            "off_course": 4,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "heuristic",
+      "budget": 720,
+      "seed": 0,
+      "weights": "experiments\\il\\results\\weights\\heuristic_b720_s0.npz",
+      "offline": {
+        "condition": "heuristic",
+        "budget": 720,
+        "seed": 0,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\heuristic_b720_s0.npz",
+        "offset_mae_mm": 3.2980282583374803,
+        "accel_mae_mm_s2": 23.832575859953053
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "heuristic",
+            "budget": 720,
+            "seed": 0,
+            "finished": true,
+            "time_s": 22.075500096714674,
+            "cone_hits": 29,
+            "off_course": 2,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "heuristic",
+            "budget": 720,
+            "seed": 0,
+            "finished": true,
+            "time_s": 33.54206986990883,
+            "cone_hits": 35,
+            "off_course": 6,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "heuristic",
+            "budget": 720,
+            "seed": 0,
+            "finished": false,
+            "time_s": null,
+            "cone_hits": 7,
+            "off_course": 2,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "heuristic",
+            "budget": 720,
+            "seed": 0,
+            "finished": true,
+            "time_s": 30.727402556429585,
+            "cone_hits": 38,
+            "off_course": 6,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "heuristic",
+      "budget": 720,
+      "seed": 1,
+      "weights": "experiments\\il\\results\\weights\\heuristic_b720_s1.npz",
+      "offline": {
+        "condition": "heuristic",
+        "budget": 720,
+        "seed": 1,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\heuristic_b720_s1.npz",
+        "offset_mae_mm": 2.527978407066776,
+        "accel_mae_mm_s2": 27.109608326771454
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "heuristic",
+            "budget": 720,
+            "seed": 1,
+            "finished": true,
+            "time_s": 21.75020060066736,
+            "cone_hits": 25,
+            "off_course": 2,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "heuristic",
+            "budget": 720,
+            "seed": 1,
+            "finished": true,
+            "time_s": 33.28126067121119,
+            "cone_hits": 31,
+            "off_course": 5,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "heuristic",
+            "budget": 720,
+            "seed": 1,
+            "finished": false,
+            "time_s": null,
+            "cone_hits": 6,
+            "off_course": 2,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "heuristic",
+            "budget": 720,
+            "seed": 1,
+            "finished": true,
+            "time_s": 29.901182013506247,
+            "cone_hits": 32,
+            "off_course": 6,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "heuristic",
+      "budget": 720,
+      "seed": 2,
+      "weights": "experiments\\il\\results\\weights\\heuristic_b720_s2.npz",
+      "offline": {
+        "condition": "heuristic",
+        "budget": 720,
+        "seed": 2,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\heuristic_b720_s2.npz",
+        "offset_mae_mm": 3.1970031033543385,
+        "accel_mae_mm_s2": 28.295564957226606
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "heuristic",
+            "budget": 720,
+            "seed": 2,
+            "finished": false,
+            "time_s": null,
+            "cone_hits": 7,
+            "off_course": 1,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "heuristic",
+            "budget": 720,
+            "seed": 2,
+            "finished": true,
+            "time_s": 34.812053909436834,
+            "cone_hits": 40,
+            "off_course": 6,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "heuristic",
+            "budget": 720,
+            "seed": 2,
+            "finished": false,
+            "time_s": null,
+            "cone_hits": 6,
+            "off_course": 2,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "heuristic",
+            "budget": 720,
+            "seed": 2,
+            "finished": true,
+            "time_s": 29.903050488164677,
+            "cone_hits": 34,
+            "off_course": 4,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "cert_control",
+      "budget": 100,
+      "seed": 0,
+      "weights": "experiments\\il\\results\\weights\\cert_control_b100_s0.npz",
+      "offline": {
+        "condition": "cert_control",
+        "budget": 100,
+        "seed": 0,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\cert_control_b100_s0.npz",
+        "offset_mae_mm": 25.614385612928356,
+        "accel_mae_mm_s2": 302.73631747188375
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "cert_control",
+            "budget": 100,
+            "seed": 0,
+            "finished": true,
+            "time_s": 46.158516268139316,
+            "cone_hits": 2,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "cert_control",
+            "budget": 100,
+            "seed": 0,
+            "finished": true,
+            "time_s": 49.05226273890251,
+            "cone_hits": 22,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "cert_control",
+            "budget": 100,
+            "seed": 0,
+            "finished": true,
+            "time_s": 42.75536816897239,
+            "cone_hits": 0,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "cert_control",
+            "budget": 100,
+            "seed": 0,
+            "finished": true,
+            "time_s": 50.22753977628255,
+            "cone_hits": 23,
+            "off_course": 0,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "cert_control",
+      "budget": 100,
+      "seed": 1,
+      "weights": "experiments\\il\\results\\weights\\cert_control_b100_s1.npz",
+      "offline": {
+        "condition": "cert_control",
+        "budget": 100,
+        "seed": 1,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\cert_control_b100_s1.npz",
+        "offset_mae_mm": 18.99762239851526,
+        "accel_mae_mm_s2": 297.86943230133863
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "cert_control",
+            "budget": 100,
+            "seed": 1,
+            "finished": true,
+            "time_s": 47.968310020564374,
+            "cone_hits": 8,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "cert_control",
+            "budget": 100,
+            "seed": 1,
+            "finished": true,
+            "time_s": 50.45168356672569,
+            "cone_hits": 73,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "cert_control",
+            "budget": 100,
+            "seed": 1,
+            "finished": true,
+            "time_s": 43.95907294030362,
+            "cone_hits": 23,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "cert_control",
+            "budget": 100,
+            "seed": 1,
+            "finished": true,
+            "time_s": 50.88433935275187,
+            "cone_hits": 67,
+            "off_course": 0,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "cert_control",
+      "budget": 100,
+      "seed": 2,
+      "weights": "experiments\\il\\results\\weights\\cert_control_b100_s2.npz",
+      "offline": {
+        "condition": "cert_control",
+        "budget": 100,
+        "seed": 2,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\cert_control_b100_s2.npz",
+        "offset_mae_mm": 22.78499852137169,
+        "accel_mae_mm_s2": 133.53830026189056
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "cert_control",
+            "budget": 100,
+            "seed": 2,
+            "finished": true,
+            "time_s": 47.43709265022389,
+            "cone_hits": 0,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "cert_control",
+            "budget": 100,
+            "seed": 2,
+            "finished": true,
+            "time_s": 53.175451241340916,
+            "cone_hits": 14,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "cert_control",
+            "budget": 100,
+            "seed": 2,
+            "finished": true,
+            "time_s": 44.02500359379796,
+            "cone_hits": 0,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "cert_control",
+            "budget": 100,
+            "seed": 2,
+            "finished": true,
+            "time_s": 53.560659788451964,
+            "cone_hits": 18,
+            "off_course": 0,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "cert_control",
+      "budget": 300,
+      "seed": 0,
+      "weights": "experiments\\il\\results\\weights\\cert_control_b300_s0.npz",
+      "offline": {
+        "condition": "cert_control",
+        "budget": 300,
+        "seed": 0,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\cert_control_b300_s0.npz",
+        "offset_mae_mm": 12.320480244683525,
+        "accel_mae_mm_s2": 49.605158875552725
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "cert_control",
+            "budget": 300,
+            "seed": 0,
+            "finished": true,
+            "time_s": 47.24306737472615,
+            "cone_hits": 10,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "cert_control",
+            "budget": 300,
+            "seed": 0,
+            "finished": true,
+            "time_s": 52.6080868253449,
+            "cone_hits": 29,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "cert_control",
+            "budget": 300,
+            "seed": 0,
+            "finished": true,
+            "time_s": 44.33088044941461,
+            "cone_hits": 5,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "cert_control",
+            "budget": 300,
+            "seed": 0,
+            "finished": true,
+            "time_s": 53.12826572667726,
+            "cone_hits": 30,
+            "off_course": 0,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "cert_control",
+      "budget": 300,
+      "seed": 1,
+      "weights": "experiments\\il\\results\\weights\\cert_control_b300_s1.npz",
+      "offline": {
+        "condition": "cert_control",
+        "budget": 300,
+        "seed": 1,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\cert_control_b300_s1.npz",
+        "offset_mae_mm": 12.361792969536102,
+        "accel_mae_mm_s2": 36.13214918864977
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "cert_control",
+            "budget": 300,
+            "seed": 1,
+            "finished": true,
+            "time_s": 47.410846093445116,
+            "cone_hits": 13,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "cert_control",
+            "budget": 300,
+            "seed": 1,
+            "finished": true,
+            "time_s": 51.47669067999285,
+            "cone_hits": 58,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "cert_control",
+            "budget": 300,
+            "seed": 1,
+            "finished": true,
+            "time_s": 44.185489674901206,
+            "cone_hits": 11,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "cert_control",
+            "budget": 300,
+            "seed": 1,
+            "finished": true,
+            "time_s": 51.788163068505376,
+            "cone_hits": 57,
+            "off_course": 0,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "cert_control",
+      "budget": 300,
+      "seed": 2,
+      "weights": "experiments\\il\\results\\weights\\cert_control_b300_s2.npz",
+      "offline": {
+        "condition": "cert_control",
+        "budget": 300,
+        "seed": 2,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\cert_control_b300_s2.npz",
+        "offset_mae_mm": 10.176266546225227,
+        "accel_mae_mm_s2": 43.624854917817096
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "cert_control",
+            "budget": 300,
+            "seed": 2,
+            "finished": true,
+            "time_s": 48.01844108463795,
+            "cone_hits": 6,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "cert_control",
+            "budget": 300,
+            "seed": 2,
+            "finished": true,
+            "time_s": 54.25350148139172,
+            "cone_hits": 0,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "cert_control",
+            "budget": 300,
+            "seed": 2,
+            "finished": true,
+            "time_s": 44.50700115894833,
+            "cone_hits": 0,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "cert_control",
+            "budget": 300,
+            "seed": 2,
+            "finished": true,
+            "time_s": 54.38215399156267,
+            "cone_hits": 0,
+            "off_course": 0,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "cert_control",
+      "budget": 720,
+      "seed": 0,
+      "weights": "experiments\\il\\results\\weights\\cert_control_b720_s0.npz",
+      "offline": {
+        "condition": "cert_control",
+        "budget": 720,
+        "seed": 0,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\cert_control_b720_s0.npz",
+        "offset_mae_mm": 9.966677551842084,
+        "accel_mae_mm_s2": 18.430798268211028
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "cert_control",
+            "budget": 720,
+            "seed": 0,
+            "finished": true,
+            "time_s": 47.20917504598335,
+            "cone_hits": 17,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "cert_control",
+            "budget": 720,
+            "seed": 0,
+            "finished": true,
+            "time_s": 52.40204338049634,
+            "cone_hits": 51,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "cert_control",
+            "budget": 720,
+            "seed": 0,
+            "finished": true,
+            "time_s": 44.27797255223318,
+            "cone_hits": 3,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "cert_control",
+            "budget": 720,
+            "seed": 0,
+            "finished": true,
+            "time_s": 53.03861142511779,
+            "cone_hits": 43,
+            "off_course": 0,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "cert_control",
+      "budget": 720,
+      "seed": 1,
+      "weights": "experiments\\il\\results\\weights\\cert_control_b720_s1.npz",
+      "offline": {
+        "condition": "cert_control",
+        "budget": 720,
+        "seed": 1,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\cert_control_b720_s1.npz",
+        "offset_mae_mm": 8.389876325666947,
+        "accel_mae_mm_s2": 16.852749004683474
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "cert_control",
+            "budget": 720,
+            "seed": 1,
+            "finished": true,
+            "time_s": 47.46871466975396,
+            "cone_hits": 10,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "cert_control",
+            "budget": 720,
+            "seed": 1,
+            "finished": true,
+            "time_s": 53.30407819225529,
+            "cone_hits": 37,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "cert_control",
+            "budget": 720,
+            "seed": 1,
+            "finished": true,
+            "time_s": 44.61843580657237,
+            "cone_hits": 3,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "cert_control",
+            "budget": 720,
+            "seed": 1,
+            "finished": true,
+            "time_s": 53.694632516547074,
+            "cone_hits": 37,
+            "off_course": 0,
+            "controller_exception": null
+          }
+        ]
+      }
+    },
+    {
+      "condition": "cert_control",
+      "budget": 720,
+      "seed": 2,
+      "weights": "experiments\\il\\results\\weights\\cert_control_b720_s2.npz",
+      "offline": {
+        "condition": "cert_control",
+        "budget": 720,
+        "seed": 2,
+        "split": "test",
+        "n": 240,
+        "weights": "experiments\\il\\results\\weights\\cert_control_b720_s2.npz",
+        "offset_mae_mm": 8.048479300494666,
+        "accel_mae_mm_s2": 22.41255964602075
+      },
+      "closed_loop": {
+        "kind": "il_closed_loop",
+        "tracks": [
+          "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+          "datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+        ],
+        "results": [
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0000.yaml",
+            "condition": "cert_control",
+            "budget": 720,
+            "seed": 2,
+            "finished": true,
+            "time_s": 47.6999103400955,
+            "cone_hits": 0,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0001.yaml",
+            "condition": "cert_control",
+            "budget": 720,
+            "seed": 2,
+            "finished": true,
+            "time_s": 53.07411597160189,
+            "cone_hits": 1,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0002.yaml",
+            "condition": "cert_control",
+            "budget": 720,
+            "seed": 2,
+            "finished": true,
+            "time_s": 44.314157459531906,
+            "cone_hits": 0,
+            "off_course": 0,
+            "controller_exception": null
+          },
+          {
+            "track": "datasets\\optimal-full\\tracks\\test-course-0003.yaml",
+            "condition": "cert_control",
+            "budget": 720,
+            "seed": 2,
+            "finished": true,
+            "time_s": 53.4937544338045,
+            "cone_hits": 0,
+            "off_course": 0,
+            "controller_exception": null
+          }
+        ]
+      }
+    }
+  ],
+  "paired_differences": {
+    "optimal-vs-approx": {
+      "budget": 720,
+      "paired_keys": [
+        {
+          "course": "test-course-0000",
+          "seed": 0,
+          "difference_s": -12.576785745323207
+        },
+        {
+          "course": "test-course-0000",
+          "seed": 1,
+          "difference_s": -12.896041629092338
+        },
+        {
+          "course": "test-course-0000",
+          "seed": 2,
+          "difference_s": -12.510309492234782
+        },
+        {
+          "course": "test-course-0001",
+          "seed": 0,
+          "difference_s": -14.371739079807526
+        },
+        {
+          "course": "test-course-0001",
+          "seed": 1,
+          "difference_s": -13.694631336348579
+        },
+        {
+          "course": "test-course-0001",
+          "seed": 2,
+          "difference_s": -13.567911859227074
+        },
+        {
+          "course": "test-course-0002",
+          "seed": 0,
+          "difference_s": -11.742482136441502
+        },
+        {
+          "course": "test-course-0002",
+          "seed": 1,
+          "difference_s": -11.282385069408342
+        },
+        {
+          "course": "test-course-0002",
+          "seed": 2,
+          "difference_s": -12.148677816044454
+        },
+        {
+          "course": "test-course-0003",
+          "seed": 0,
+          "difference_s": -14.327333156928105
+        },
+        {
+          "course": "test-course-0003",
+          "seed": 1,
+          "difference_s": -13.75182079622985
+        },
+        {
+          "course": "test-course-0003",
+          "seed": 2,
+          "difference_s": -13.52001795505683
+        }
+      ],
+      "course_differences": {
+        "test-course-0000": -12.661045622216776,
+        "test-course-0001": -13.878094091794393,
+        "test-course-0002": -11.7245150072981,
+        "test-course-0003": -13.866390636071594
+      },
+      "n_courses": 4,
+      "mean_difference": -13.032511339345216,
+      "bootstrap_95_ci_over_courses": [
+        -13.872242363932994,
+        -12.192780314757439
+      ]
+    },
+    "optimal-vs-heuristic": {
+      "budget": 720,
+      "paired_keys": [
+        {
+          "course": "test-course-0000",
+          "seed": 0,
+          "difference_s": 25.133674949268677
+        },
+        {
+          "course": "test-course-0000",
+          "seed": 1,
+          "difference_s": 25.7185140690866
+        },
+        {
+          "course": "test-course-0001",
+          "seed": 0,
+          "difference_s": 18.85997351058751
+        },
+        {
+          "course": "test-course-0001",
+          "seed": 1,
+          "difference_s": 20.022817521044097
+        },
+        {
+          "course": "test-course-0001",
+          "seed": 2,
+          "difference_s": 18.262062062165057
+        },
+        {
+          "course": "test-course-0003",
+          "seed": 0,
+          "difference_s": 22.311208868688208
+        },
+        {
+          "course": "test-course-0003",
+          "seed": 1,
+          "difference_s": 23.793450503040827
+        },
+        {
+          "course": "test-course-0003",
+          "seed": 2,
+          "difference_s": 23.59070394563982
+        }
+      ],
+      "course_differences": {
+        "test-course-0000": 25.426094509177638,
+        "test-course-0001": 19.04828436459889,
+        "test-course-0003": 23.231787772456286
+      },
+      "n_courses": 3,
+      "mean_difference": 22.56872221541094,
+      "bootstrap_95_ci_over_courses": [
+        19.04828436459889,
+        25.42609450917764
+      ]
+    },
+    "optimal-vs-cert_control": {
+      "budget": 720,
+      "paired_keys": [
+        {
+          "course": "test-course-0000",
+          "seed": 0,
+          "difference_s": 0.0
+        },
+        {
+          "course": "test-course-0000",
+          "seed": 1,
+          "difference_s": 0.0
+        },
+        {
+          "course": "test-course-0000",
+          "seed": 2,
+          "difference_s": 0.0
+        },
+        {
+          "course": "test-course-0001",
+          "seed": 0,
+          "difference_s": 0.0
+        },
+        {
+          "course": "test-course-0001",
+          "seed": 1,
+          "difference_s": 0.0
+        },
+        {
+          "course": "test-course-0001",
+          "seed": 2,
+          "difference_s": 0.0
+        },
+        {
+          "course": "test-course-0002",
+          "seed": 0,
+          "difference_s": 0.0
+        },
+        {
+          "course": "test-course-0002",
+          "seed": 1,
+          "difference_s": 0.0
+        },
+        {
+          "course": "test-course-0002",
+          "seed": 2,
+          "difference_s": 0.0
+        },
+        {
+          "course": "test-course-0003",
+          "seed": 0,
+          "difference_s": 0.0
+        },
+        {
+          "course": "test-course-0003",
+          "seed": 1,
+          "difference_s": 0.0
+        },
+        {
+          "course": "test-course-0003",
+          "seed": 2,
+          "difference_s": 0.0
+        }
+      ],
+      "course_differences": {
+        "test-course-0000": 0.0,
+        "test-course-0001": 0.0,
+        "test-course-0002": 0.0,
+        "test-course-0003": 0.0
+      },
+      "n_courses": 4,
+      "mean_difference": 0.0,
+      "bootstrap_95_ci_over_courses": [
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "failures": []
+}

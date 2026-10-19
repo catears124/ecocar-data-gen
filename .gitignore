@@ -12,6 +12,7 @@ tracks/*.png
 # but this repository *is* a submission -- our own controller is tracked deliberately.
 teams/*
 !teams/certline.py
+!teams/joint_exact.py
 # generated imitation-data corpora and Lean build output
 datasets/
 lean/.lake/
@@ -22,3 +23,7 @@ datasets/*.zip
 .idea/
 .vs/
 .fleet/
+
+# IL experiment artifacts are regenerated; keep only machine-readable summaries
+experiments/il/results/runs/
+experiments/il/results/weights/
