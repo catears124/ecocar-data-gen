@@ -126,6 +126,16 @@ reference construction. Those are measurements on the development machine, not
 a real-time proof for the 1-core/1 GB target; the certificate checker is an
 offline verifier and is not run inside the control loop.
 
+
+### Optional performance governor
+
+`performance_guard: true` falls back to `certline` whenever the exact plan's
+requested acceleration is more than 0.4 m/s² below the baseline's. It recovers
+the baseline lap times (mean 71.5/75 on the same five courses, zero cones/off),
+but it reduces certified exact steps to ~2% of control steps. That mode is a
+performance envelope around `certline`, not evidence that the actuator
+controller is driving optimally; it is off by default and is reported only as a
+measured trade-off.
 ## Remaining gaps
 
 * The 50 ms budget is approached but not proved; the exact DP is CPython/NumPy,

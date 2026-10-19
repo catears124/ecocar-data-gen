@@ -43,6 +43,7 @@ class ActuatorExactController(Controller):
         self.terminal_distance = int(cfg.get("terminal_distance", 8000))
         self.steer_tau_s = float(cfg.get("steer_tau_s", 0.06))
         self.emit_certificates = bool(cfg.get("emit_certificates", False))
+        self.performance_guard = bool(cfg.get("performance_guard", False))
         self._certificate = None
         self._last = None
         self._solver_name = "numpy"
@@ -168,6 +169,12 @@ class ActuatorExactController(Controller):
                                "fallback_reason": "no admissible exact actuator plan"})
             return base
         m, t, cost, (u, a), diag, elapsed = result
+        base_a = (float(getattr(base, "throttle", 0.0)) * self.vehicle.max_accel
+                  - float(getattr(base, "brake", 0.0)) * self.vehicle.max_decel)
+        if self.performance_guard and a / 1000.0 < base_a - 0.4:
+            base.debug.update({"planner": "certline-fallback", "certified": False,
+                               "fallback_reason": "performance governor"})
+            return base
         cmd = command_from_first(obs, self.vehicle, m, u, a)
         cmd.debug.update({"cost": float(cost) if cost is not None else -1.0,
                           "solver_ms": float(elapsed), "states": float(diag["states"]),
