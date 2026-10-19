@@ -1,4 +1,4 @@
-"""Lean-certified lateral/steering decision model ``steer-1``.
+"""Lean-certified lateral/steering decision model ``steer-2``.
 
 The model consumes the same quantised road preview as ``cert-2`` plus the vehicle's
 quantised lateral-offset magnitude (millimetres; the magnitude is non-negative).  An exact
@@ -24,7 +24,7 @@ from fractions import Fraction
 
 from autocross.datagen import cert
 
-CERT_MODEL = "steer-1"
+CERT_MODEL = "steer-2"
 KIND_PLAN_OK, KIND_NO_GAP, KIND_INVALID = 0, 1, 2
 KIND_NAMES = {0: "plan_ok", 1: "no_feasible_gap", 2: "invalid_input"}
 
@@ -219,7 +219,7 @@ def wOb(c: dict, d: int, si: int) -> int:
     if si <= d + hold:
         return 1000
     if si <= d + hold + rout:
-        return 1000 - ramp(1000, si - d - hold, rout)
+        return min(999, 1000 - ramp(1000, si - d - hold, rout))
     return 0
 
 def rawPlanAt(c: dict, q: dict, si: int) -> tuple[int, int, int, int, int] | None:

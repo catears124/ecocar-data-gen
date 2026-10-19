@@ -1,4 +1,4 @@
-"""Unit and Python/Lean parity tests for the integer ``steer-1`` mirror."""
+"""Unit and Python/Lean parity tests for the integer ``steer-2`` mirror."""
 from __future__ import annotations
 
 import shutil
@@ -27,6 +27,49 @@ def test_ramp_endpoints_monotonic_and_bounds():
     assert vals == sorted(vals)
     assert all(0 <= x <= 1750 for x in vals)
 
+
+
+def test_ramp_out_cap_regression_selects_later_hold_supplier():
+    # At s=24000 the old ramp-out formula rounded A up to 1000, tying B's
+    # hold.  The first-strict-largest fold then incorrectly retained A.
+    d_a, d_b = 20_900, 27_000
+    old_a = 1000 - steer.ramp(1000, 24_000 - d_a - C["lon"]["hold"], C["lon"]["ramp_out"])
+    assert old_a == 1000
+    assert steer.wOb(C, d_a, 24_000) == 999
+    qq = q(obstacles=[(d_a, 500, 1500), (d_b, -1500, -500)])
+    assert steer.rawPlanAt(C, qq, 24_000)[0] == d_b
+
+
+def test_old_ramp_out_weight_overlaps_opposing_obstacle_while_clearance_reports_ok(monkeypatch):
+    """Python mirror of `Corpus.SteerClear.old_selector_counterexample`: with the pre-fix
+    weight the plan inside B's hold window follows A (offset -1250, car body overlapping B's
+    extent [-1500, -500]) while every recorded clearance is nonnegative; the fixed model
+    passes B on its left with nonnegative clearance."""
+    lon = {**C["lon"], "hold": 3000, "ramp_in": 18000, "ramp_out": 15000, "veh_width": 2000}
+    c = {**C, "lon": lon, "margin": 200}
+    qq = q(obstacles=[(20_900, 500, 1500), (27_000, -1500, -500)])
+    hw = steer.halfw(c)
+    new_off = steer.offAt(c, qq, 24_000, 24)
+    assert new_off == 1250 and new_off - hw >= -500 + c["margin"]
+    assert all(x >= 0 for x in steer.clears(c, qq))
+
+    def old_wob(cc, d, si):
+        h, ri, ro = cc["lon"]["hold"], cc["lon"]["ramp_in"], cc["lon"]["ramp_out"]
+        if si < d - h - ri:
+            return 0
+        if si < d - h:
+            return steer.ramp(1000, si - d + h + ri, ri)
+        if si <= d + h:
+            return 1000
+        if si <= d + h + ro:
+            return 1000 - steer.ramp(1000, si - d - h, ro)
+        return 0
+
+    monkeypatch.setattr(steer, "wOb", old_wob)
+    old_off = steer.offAt(c, qq, 24_000, 24)
+    assert old_off == -1250
+    assert old_off - hw < -500 and -1500 < old_off + hw          # body overlaps obstacle B
+    assert all(x >= 0 for x in steer.clears(c, qq))               # ... yet the certificate said clear
 
 def test_side_rule_tie_and_amplitude_bound():
     left = q(lat=0, obstacles=[(20_000, -500, 500)])

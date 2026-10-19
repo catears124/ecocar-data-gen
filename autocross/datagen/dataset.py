@@ -27,7 +27,7 @@ from . import INDEX_SCHEMA, SAMPLE_SCHEMA, SCHEMA_VERSION, DatagenError
 from .cert import CERT_MODEL
 from .records import POLICY_EGO, POLICY_OBSERVATION_SCHEMA, POLICY_ROAD_KEYS, TRAINING_TARGET_SCHEMA
 
-CERT_SCOPE = "longitudinal acceleration (mm/s^2) and per-station lateral clearance (mm) of cert-2/steer-1; lateral path, steering, pedals uncertified"
+CERT_SCOPE = "longitudinal acceleration (mm/s^2) and per-station lateral clearance (mm) of cert-2/steer-2; lateral path, steering, pedals uncertified"
 
 
 def _open_index(root: Path, expect_backend: str | None) -> dict:

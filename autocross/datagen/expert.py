@@ -64,7 +64,7 @@ PARAMS = {k: v for k, v in dict(globals()).items() if k.isupper() and isinstance
 
 
 def model_constants(vp: VehicleParams) -> dict:
-    """Combined cert-2 and steer-1 constants used by the expert."""
+    """Combined cert-2 and steer-2 constants used by the expert."""
     return steer.model_constants(vp)
 
 
@@ -106,14 +106,14 @@ def _approach(obs: Observation, vp: VehicleParams, target_speed: float) -> Comma
 
 
 def _steer_domain_q(q: dict | None) -> dict | None:
-    """Map the observed lateral offset into steer-1's declared non-negative domain."""
+    """Map the observed lateral offset into steer-2's declared non-negative domain."""
     if q is None:
         return None
     return {**q, "lat": abs(int(q["lat"]))}
 
 
 def lateral_plan(road, vp: VehicleParams, q: dict, c: dict, dec: dict | None = None) -> tuple[np.ndarray, np.ndarray, float]:
-    """Build the vehicle-frame path from the certified integer steer-1 offsets."""
+    """Build the vehicle-frame path from the certified integer steer-2 offsets."""
     del vp
     if dec is None:
         dec = steer.decide(c, q)

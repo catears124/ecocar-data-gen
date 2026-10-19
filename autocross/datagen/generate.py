@@ -196,7 +196,7 @@ def certificate_block(dbg: dict) -> dict | None:
     return out
 
 def lateral_block(policy: dict, vp: VehicleParams, longitudinal: dict | None) -> dict | None:
-    """Build the exact steer-1 witness from policy input; approach/invalid longitudinal is null."""
+    """Build the exact steer-2 witness from policy input; approach/invalid longitudinal is null."""
     if longitudinal is None:
         return None
     q = steer.quantise_dict(policy)

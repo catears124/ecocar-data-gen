@@ -1,5 +1,5 @@
 /-
-  Corridor and obstacle-clearance algebra for the steer-1 plan.
+  Corridor and obstacle-clearance algebra for the steer-2 plan.
   These facts deliberately do not use the smooth ramp bounds.
 -/
 import Corpus.Steer

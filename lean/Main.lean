@@ -16,6 +16,7 @@ library is built. Per-sample kernel proofs are produced separately (`Corpus/Witn
 Prints a JSON report; exit code 0 iff every property holds.
 -/
 import Corpus
+import Corpus.Quant
 import Std.Data.HashMap
 
 open Lean Corpus
@@ -64,9 +65,7 @@ def manifestChecks (d : Interchange) : List Result :=
 
 /-- `floor(x * scale + 1/2)` for the exact decimal value `x = mantissa / 10^exponent` of a JSON
 number (identical to `cert.qfix` on the float's shortest repr, which is the JSON text). -/
-def qfix (n : JsonNumber) (scale : Nat) : Int :=
-  let den : Int := ((10 : Nat) ^ n.exponent : Nat)
-  (2 * n.mantissa * scale + den) / (2 * den)
+def qfix (n : JsonNumber) (scale : Nat) : Int := Corpus.Quant.qfix n scale
 
 def jnum (j : Json) (k : String) (scale : Nat) : Option Int :=
   match j.getObjValD k with
@@ -296,7 +295,7 @@ def checkSample (r : Run) (c : Cert.Consts) (cL : Steer.Consts) (ri i : Nat) (j 
       let d := decideOptL cL qL
       recordedL := (kindIdL rc.kind).map fun k => ⟨k, rc.side, rc.amp, rc.off, rc.clear, rc.curv, rc.steer⟩
       st := { st with lateralChecked := st.lateralChecked + 1 }
-      if rc.model != "steer-1" then st := st.fail "lateral_cert_model_and_constants" sid
+      if rc.model != "steer-2" then st := st.fail "lateral_cert_model_and_constants" sid
       if rc.matches d then verifiedLat := d.kind == Steer.kindPlanOk
       else st := { st.fail "lateral_cert_decisions_recomputed" sid with lateralMismatch := st.lateralMismatch + 1 }
   if isClean then
@@ -337,7 +336,7 @@ def corpusChecks (d : Interchange) (dir : System.FilePath) :
   let idxOk := (index.getObjValAs? String "schema").toOption == some "autocross.datagen.index" &&
     (index.getObjValAs? Nat "schema_version").toOption == some 2 &&
     (index.getObjValAs? String "certificate_model").toOption == some "cert-2" &&
-    (index.getObjValAs? String "lateral_certificate_model").toOption == some "steer-1" &&
+    (index.getObjValAs? String "lateral_certificate_model").toOption == some "steer-2" &&
     ((index.getObjValD "backend").getObjValAs? String "name").toOption == some d.backend
   -- the samples directory holds exactly the referenced sample files
   let referenced : List String := completed.filterMap fun (r : Run) => r.samplesPath
@@ -350,7 +349,7 @@ def corpusChecks (d : Interchange) (dir : System.FilePath) :
     | some c, some cL, some p =>
       if r.certModel != "cert-2" || !Cert.constsOK c then
         st := st.fail "cert_model_and_constants" r.id
-      if r.lateralCertModel != "steer-1" || !Cert.constsOK cL.lon ||
+      if r.lateralCertModel != "steer-2" || !Cert.constsOK cL.lon ||
           cL.margin < 0 || cL.step <= 0 || cL.kappa_max < 0 then
         st := st.fail "lateral_cert_model_and_constants" r.id
       let before := st
@@ -387,7 +386,7 @@ def corpusChecks (d : Interchange) (dir : System.FilePath) :
     counter "cert_model_and_constants" "both certificate models and constants satisfy sanity checks",
     counter "cert_decisions_recomputed" "Cert.decide equals every longitudinal certificate",
     counter "lateral_cert_decisions_recomputed" "Steer.decide equals every lateral certificate",
-    counter "lateral_cert_model_and_constants" "lateral model steer-1",
+    counter "lateral_cert_model_and_constants" "lateral model steer-2",
     counter "cert_presence_matches_phase" "both certificates present iff expert phase",
     counter "clean_samples_certified" "every clean sample has verified longitudinal and lateral certificates",
     check "clean_ids_equal_checked_ids" "clean ids equal ids with both verified certified labels"

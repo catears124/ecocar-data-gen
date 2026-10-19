@@ -152,7 +152,7 @@ def build() -> str:
     return lake
 
 
-_AX = re.compile(r"^'([^']+)' (?:depends on axioms: \[([^\]]*)\]|does not depend on any axioms)")
+_AX = re.compile(r"^'(.+?)' (?:depends on axioms: \[([^\]]*)\]|does not depend on any axioms)")
 
 
 def parse_axioms(text: str) -> dict[str, set[str]]:
@@ -164,18 +164,50 @@ def parse_axioms(text: str) -> dict[str, set[str]]:
     return out
 
 
+def _declared_theorems() -> list[str]:
+    """Return fully-qualified theorem declarations in Corpus sources, excluding Audit.lean."""
+    out = []
+    for path in sorted((LEAN_DIR / "Corpus").glob("*.lean")):
+        if path.name == "Audit.lean":
+            continue
+        namespace: list[str] = []
+        for line in path.read_text(encoding="utf-8").splitlines():
+            m = re.match(r"\s*namespace\s+([A-Za-z0-9_.]+)\s*$", line)
+            if m:
+                part = m.group(1)
+                namespace.append(part if not namespace else f"{namespace[-1]}.{part}")
+                continue
+            if re.match(r"\s*end(?:\s+[A-Za-z0-9_.]+)?\s*$", line):
+                if namespace:
+                    namespace.pop()
+                continue
+            m = re.match(r"\s*theorem\s+([A-Za-z0-9_'.]+)", line)
+            if not m:
+                continue
+            name = m.group(1)
+            if "." in name and name.startswith("Corpus."):
+                out.append(name)
+            elif namespace:
+                out.append(f"{namespace[-1]}.{name}")
+            else:
+                out.append(name)
+    return sorted(set(out))
+
+
 def axiom_audit(lake: str) -> dict:
-    """Release gate: every theorem named in Corpus/Audit.lean is reported and uses only the
+    """Release gate: every declared Corpus theorem is listed in Audit.lean and uses only the
     standard axioms."""
     src = (LEAN_DIR / "Corpus" / "Audit.lean").read_text()
     wanted = re.findall(r"^#print axioms (\S+)", src, re.M)
+    declared = _declared_theorems()
+    unlisted = sorted(set(declared) - set(wanted))
     r = subprocess.run([lake, "env", "lean", "Corpus/Audit.lean"], cwd=LEAN_DIR, capture_output=True, text=True)
     got = parse_axioms(r.stdout)
     missing = [t for t in wanted if t not in got]
     bad = {t: sorted(ax - ALLOWED_AXIOMS) for t, ax in got.items() if ax - ALLOWED_AXIOMS}
-    ok = r.returncode == 0 and not missing and not bad and len(wanted) > 0
+    ok = r.returncode == 0 and not missing and not unlisted and not bad and len(wanted) > 0
     return {"ok": ok, "theorems": len(wanted), "allowed_axioms": sorted(ALLOWED_AXIOMS), "missing": missing,
-            "non_standard": bad, "lines": [ln for ln in r.stdout.splitlines() if ln.strip()],
+            "unlisted": unlisted, "non_standard": bad, "lines": [ln for ln in r.stdout.splitlines() if ln.strip()],
             "stderr": r.stderr[-2000:]}
 
 

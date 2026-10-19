@@ -321,7 +321,7 @@ def validate_corpus(root: str | Path, *, replay: bool = True, allow_missing_cove
                     n_lateral_checked += 1
                     want_lat = lateral_block(s["policy_observation"], vp, lon)
                     if lat != want_lat:
-                        rep.err(f"{sw}: lateral certificate differs from steer-1 decision")
+                        rep.err(f"{sw}: lateral certificate differs from steer-2 decision")
                     if lat["certified"] != (lat["kind"] == "plan_ok"):
                         rep.err(f"{sw}: lateral certified flag inconsistent with kind")
                 a = s["applied"]

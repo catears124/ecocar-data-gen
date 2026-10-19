@@ -134,7 +134,7 @@ EDGE_CASES = {
     "bad_obstacle_tuple": (CERT_CONSTANTS, _q(n=3, obstacles=[(1000, 2)])),
     "negative_brake_budget": ({**CERT_CONSTANTS, "a_brk": -1}, _q()),
     "negative_cap": ({**CERT_CONSTANTS, "a_lat": -1}, _q()),
-    "braking_with_rounding": (CERT_CONSTANTS, _q(v0=20291, n=31)),  # floor(-6380.x) near the braking budget
+    "braking_with_rounding": (CERT_CONSTANTS, _q(v0=20171, n=31)),  # floor(-6393.87) near the braking budget
 }
 
 
@@ -335,12 +335,12 @@ def _lat(s):
 
 # These mutations deliberately stay on the Python validator path: the final release gate runs the
 # Lean checker over the same corrupted records, while these tests pin the validator's own
-# steer-1-specific diagnostics without requiring a second lake build.
+# steer-2-specific diagnostics without requiring a second lake build.
 LATERAL_CORRUPTIONS = {
     "lateral_offset_changed": (
         lambda s: _lat(s)["offset_mm"].__setitem__(0, _lat(s)["offset_mm"][0] + 1),
         clean,
-        "lateral certificate differs from steer-1 decision",
+        "lateral certificate differs from steer-2 decision",
     ),
     "lateral_certificate_deleted": (
         lambda s: s["target"].update(lateral=None),
@@ -360,27 +360,18 @@ LATERAL_CORRUPTIONS = {
     "lateral_kind_changed": (
         lambda s: _lat(s).update(kind="invalid_input"),
         clean,
-        "lateral certificate differs from steer-1 decision",
+        "lateral certificate differs from steer-2 decision",
     ),
 }
 
 
 @pytest.fixture(scope="module")
 def lateral_corpus(request):
-    """Use the newest schema-compatible release corpus; generate a fixture otherwise."""
-    root = Path(__file__).resolve().parents[2] / "work"
-    for existing in (root / "final2" / "smoke", root / "final" / "smoke"):
-        idx_path = existing / "index.json"
-        if not idx_path.is_file():
-            continue
-        try:
-            idx = json.loads(idx_path.read_text())
-            sample_path = existing / idx["scenarios"][0]["files"]["samples"]["path"]
-            first = next(x for x in sample_path.read_text().splitlines() if x.strip())
-            if "clearance_mm" in json.loads(first)["target"]["lateral"]:
-                return existing
-        except (KeyError, IndexError, StopIteration, OSError, json.JSONDecodeError):
-            pass
+    """The freshly generated fixture corpus (current `steer-2` labels).
+
+    This used to prefer a corpus found OUTSIDE the repository (`../work/final*/smoke`), which
+    made the result depend on stale external files (and crashed on a first sample whose lateral
+    block is `null`); the generated corpus is deterministic and always schema-current."""
     return request.getfixturevalue("corpus")
 
 

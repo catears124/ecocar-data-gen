@@ -1,5 +1,5 @@
-/-
-Certified lateral plan and derived steering, model `steer-1`.
+/- 
+Certified lateral plan and derived steering, model `steer-2`.
 The integer definitions and decision branches are kernel-reduced.  The choice of
 vehicle constants, the interpretation of lateral widths/obstacles, and the
 physics bridge from the integer curvature law to a bicycle model remain
@@ -104,7 +104,7 @@ def wOb (c : Consts) (d si : Int) : Int :=
   else if si < d - c.lon.hold then ramp 1000 (si - d + c.lon.hold + c.lon.ramp_in) c.lon.ramp_in
   else if si ≤ d + c.lon.hold then 1000
   else if si ≤ d + c.lon.hold + c.lon.ramp_out then
-    1000 - ramp 1000 (si - d - c.lon.hold) c.lon.ramp_out
+    min 999 (1000 - ramp 1000 (si - d - c.lon.hold) c.lon.ramp_out)
   else 0
 
 def rawPlanAt (c : Consts) (q : Q) (si : Int) : Option Plan :=
