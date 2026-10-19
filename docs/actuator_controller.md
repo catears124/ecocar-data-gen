@@ -136,6 +136,13 @@ but it reduces certified exact steps to ~2% of control steps. That mode is a
 performance envelope around `certline`, not evidence that the actuator
 controller is driving optimally; it is off by default and is reported only as a
 measured trade-off.
+
+Held-out generated bicycle courses (`datasets/optimal-full/tracks/test-course-000*.yaml`,
+machine-readable in `experiments/actuator_bench/results.json`): the actuator
+controller finishes 4/4 with **0 cones and 0 off-course**, mean 23.69 s, maximum
+p99 28.3 ms. `certline` finishes 4/4 in mean 21.31 s with 3 cone hits total and
+p99 3.6 ms. The actuator controller is therefore safer on this sample but slower;
+it is not the technical-score winner.
 ## Remaining gaps
 
 * The 50 ms budget is approached but not proved; the exact DP is CPython/NumPy,

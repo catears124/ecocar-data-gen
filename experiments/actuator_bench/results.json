@@ -1,0 +1,125 @@
+{
+  "certline_heldout": [
+    {
+      "cones": 3,
+      "controller": "certline",
+      "course": "gen_open_12124990935044716790",
+      "finished": true,
+      "missed_gate": 0,
+      "obstacle_hits": 0,
+      "off_course": 0,
+      "run": "runs\\20261019-152506_certline_gen_open_12124990935044716790",
+      "step_ms_mean": 1.2555747773928618,
+      "step_ms_p99": 2.586674009799014,
+      "time_s": 20.745847170241305,
+      "track": "C:\\Users\\y\\Desktop\\carla\\veridrive-proof-closure\\datasets\\optimal-full\\tracks\\test-course-0000.yaml"
+    },
+    {
+      "cones": 0,
+      "controller": "certline",
+      "course": "gen_closed_12000720049915434330",
+      "finished": true,
+      "missed_gate": 0,
+      "obstacle_hits": 0,
+      "off_course": 0,
+      "run": "runs\\20261019-152509_certline_gen_closed_12000720049915434330",
+      "step_ms_mean": 1.3937256874627681,
+      "step_ms_p99": 2.980055997613813,
+      "time_s": 24.360394552371442,
+      "track": "C:\\Users\\y\\Desktop\\carla\\veridrive-proof-closure\\datasets\\optimal-full\\tracks\\test-course-0001.yaml"
+    },
+    {
+      "cones": 0,
+      "controller": "certline",
+      "course": "gen_open_17086298205478097117",
+      "finished": true,
+      "missed_gate": 0,
+      "obstacle_hits": 0,
+      "off_course": 0,
+      "run": "runs\\20261019-152513_certline_gen_open_17086298205478097117",
+      "step_ms_mean": 1.396813904580207,
+      "step_ms_p99": 2.9029170176363546,
+      "time_s": 17.06604928763916,
+      "track": "C:\\Users\\y\\Desktop\\carla\\veridrive-proof-closure\\datasets\\optimal-full\\tracks\\test-course-0002.yaml"
+    },
+    {
+      "cones": 0,
+      "controller": "certline",
+      "course": "gen_closed_4445948223288533962",
+      "finished": true,
+      "missed_gate": 0,
+      "obstacle_hits": 0,
+      "off_course": 0,
+      "run": "runs\\20261019-152516_certline_gen_closed_4445948223288533962",
+      "step_ms_mean": 1.4537551181801542,
+      "step_ms_p99": 3.627572992118077,
+      "time_s": 23.06469168562542,
+      "track": "C:\\Users\\y\\Desktop\\carla\\veridrive-proof-closure\\datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+    }
+  ],
+  "heldout": [
+    {
+      "cones": 0,
+      "controller": "actuator_exact",
+      "course": "gen_open_12124990935044716790",
+      "finished": true,
+      "missed_gate": 0,
+      "obstacle_hits": 0,
+      "off_course": 0,
+      "run": "runs\\20261019-152406_actuator_exact_gen_open_12124990935044716790",
+      "step_ms_mean": 5.585319628965009,
+      "step_ms_p99": 24.022388002194933,
+      "time_s": 22.045585699505754,
+      "track": "C:\\Users\\y\\Desktop\\carla\\veridrive-proof-closure\\datasets\\optimal-full\\tracks\\test-course-0000.yaml"
+    },
+    {
+      "cones": 0,
+      "controller": "actuator_exact",
+      "course": "gen_closed_12000720049915434330",
+      "finished": true,
+      "missed_gate": 0,
+      "obstacle_hits": 0,
+      "off_course": 0,
+      "run": "runs\\20261019-152412_actuator_exact_gen_closed_12000720049915434330",
+      "step_ms_mean": 1.3845805508093139,
+      "step_ms_p99": 2.0309160067699845,
+      "time_s": 24.360394552371442,
+      "track": "C:\\Users\\y\\Desktop\\carla\\veridrive-proof-closure\\datasets\\optimal-full\\tracks\\test-course-0001.yaml"
+    },
+    {
+      "cones": 0,
+      "controller": "actuator_exact",
+      "course": "gen_open_17086298205478097117",
+      "finished": true,
+      "missed_gate": 0,
+      "obstacle_hits": 0,
+      "off_course": 0,
+      "run": "runs\\20261019-152416_actuator_exact_gen_open_17086298205478097117",
+      "step_ms_mean": 9.602714103470461,
+      "step_ms_p99": 28.25825497711773,
+      "time_s": 25.147942223678914,
+      "track": "C:\\Users\\y\\Desktop\\carla\\veridrive-proof-closure\\datasets\\optimal-full\\tracks\\test-course-0002.yaml"
+    },
+    {
+      "cones": 0,
+      "controller": "actuator_exact",
+      "course": "gen_closed_4445948223288533962",
+      "finished": true,
+      "missed_gate": 0,
+      "obstacle_hits": 0,
+      "off_course": 0,
+      "run": "runs\\20261019-152424_actuator_exact_gen_closed_4445948223288533962",
+      "step_ms_mean": 1.4296430517912984,
+      "step_ms_p99": 1.8353400024352586,
+      "time_s": 23.214451213281805,
+      "track": "C:\\Users\\y\\Desktop\\carla\\veridrive-proof-closure\\datasets\\optimal-full\\tracks\\test-course-0003.yaml"
+    }
+  ],
+  "interpretation": "Held-out courses are datasets/optimal-full/tracks/test-course-000*.yaml. The actuator controller finishes all four with zero cones/off; it is slower than certline on open courses because exact steps are a minority and the fallback/terminal envelope is conservative.",
+  "public": {
+    "mean_technical": 65.7,
+    "note": "five public bicycle courses, 0 cones/off; exact steps 132/719 on practice_basic",
+    "run": "runs/20261019-151534_selftest"
+  },
+  "schema": "veridrive.actuator_bench.v1"
+}
