@@ -1,0 +1,127 @@
+{
+ "summary": {
+  "jobs": 2,
+  "mode": "measure",
+  "seeds": [
+   0
+  ],
+  "tracks": [
+   "practice_loop",
+   "practice_obstacles"
+  ],
+  "set": {},
+  "perturb": {},
+  "by_controller": {
+   "timed": {
+    "runs": 2,
+    "finished": 2,
+    "technical_mean": 18.395,
+    "time_mean_finished_s": 79.08112043570893,
+    "adjusted_time_mean_finished_s": 116.081,
+    "cones": 32,
+    "off_course": 0,
+    "missed_gate": 1,
+    "exact_fraction_mean": 1.0,
+    "feasible_fraction_mean": 0.6565760376958235,
+    "step_ms_p50_median": 19.352400006027892,
+    "step_ms_p99_max": 101.26435600628618,
+    "overruns": 56,
+    "peak_memory_mb_max": 43.96875,
+    "solve_ms_p50_max": 17.6954,
+    "solve_ms_p99_max": 88.1998,
+    "categories_mean": {
+     "completion_time": 73.39,
+     "compute": 33.85,
+     "deviation": 90.225,
+     "dynamics": 98.455
+    }
+   }
+  }
+ },
+ "runs": [
+  {
+   "controller": "timed",
+   "track": "practice_loop",
+   "seed": 0,
+   "perturb": {},
+   "finished": true,
+   "dnf_reason": null,
+   "progress": 1.0,
+   "time_s": 97.22187262054524,
+   "reference_time_s": 78.60739396015649,
+   "adjusted_time_s": 133.222,
+   "cones": 18,
+   "obstacle_hits": 0,
+   "off_course": 0,
+   "missed_gate": 0,
+   "technical": 20.41,
+   "category_scores": {
+    "completion_time": 72.69,
+    "deviation": 80.97,
+    "compute": 51.18,
+    "dynamics": 98.53
+   },
+   "step_ms_p50": 18.843350000679493,
+   "step_ms_p99": 40.02961999154647,
+   "step_ms_max": 54.64340001344681,
+   "overruns": 7,
+   "peak_memory_mb": 43.6328125,
+   "path_err_mean_m": 0.07758038309713827,
+   "path_err_max_m": 1.6893209856343205,
+   "controller_error": "",
+   "run_dir": "experiments\\bench\\loop_obst_singlejob\\timed_practice_loop_s0",
+   "control_steps": 1988,
+   "status_counts": {
+    "1": 1988
+   },
+   "exact_fraction": 1.0,
+   "fallback_reasons": {},
+   "feasible_fraction_of_exact": 0.5990945674044266,
+   "solve_ms_p50": 17.139,
+   "solve_ms_p99": 38.1708,
+   "solve_ms_max": 52.2829
+  },
+  {
+   "controller": "timed",
+   "track": "practice_obstacles",
+   "seed": 0,
+   "perturb": {},
+   "finished": true,
+   "dnf_reason": null,
+   "progress": 1.0,
+   "time_s": 60.940368250872616,
+   "reference_time_s": 49.86541192888362,
+   "adjusted_time_s": 98.94,
+   "cones": 14,
+   "obstacle_hits": 0,
+   "off_course": 0,
+   "missed_gate": 1,
+   "technical": 16.38,
+   "category_scores": {
+    "completion_time": 74.09,
+    "deviation": 99.48,
+    "compute": 16.52,
+    "dynamics": 98.38
+   },
+   "step_ms_p50": 19.352400006027892,
+   "step_ms_p99": 101.26435600628618,
+   "step_ms_max": 175.65029999241233,
+   "overruns": 49,
+   "peak_memory_mb": 43.96875,
+   "path_err_mean_m": 0.07804853609226947,
+   "path_err_max_m": 0.5326162665614605,
+   "controller_error": "",
+   "run_dir": "experiments\\bench\\loop_obst_singlejob\\timed_practice_obstacles_s0",
+   "control_steps": 1252,
+   "status_counts": {
+    "1": 1252
+   },
+   "exact_fraction": 1.0,
+   "fallback_reasons": {},
+   "feasible_fraction_of_exact": 0.7140575079872205,
+   "solve_ms_p50": 17.6954,
+   "solve_ms_p99": 88.1998,
+   "solve_ms_max": 165.283
+  }
+ ]
+}
