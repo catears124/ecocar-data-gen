@@ -64,3 +64,61 @@ marked *trust* are outside every theorem.
 
 See `docs/proof_closure_report.md` § "Remaining obligations" for the complete list with the
 failed approach or missing ingredient for each.
+
+## Optimal teacher trust boundary
+
+The proof-carrying teacher adds a finite, integer model; it does not remove the
+following trust boundaries:
+
+- **Quantisation.** The teacher consumes the quantised preview (`s`, curvature,
+  widths, obstacle triples, and current speed), not raw continuous perception.
+  The quantisation implementation and the correspondence between a Python
+  observation and the intended physical observation remain outside the teacher
+  optimality theorem.
+- **Integer curvature model.** Curvature demand is the declared integer road
+  curvature plus a ceiling of the integer second-offset difference. It is not a
+  proof that a continuous interpolant, driven vehicle, or tracked path has that
+  curvature bound.
+- **Obstacle inflation and hold.** The lateral obstacle extents are inflated by
+  the declared vehicle half-width and margin, and the obstacle constraint is
+  applied only in the declared longitudinal hold window. Correct obstacle
+  extents, hold-window coverage, and the adequacy of this inflation are model
+  choices.
+- **Declared grids, horizon, and terminal cap.** Optimality is over the
+  declared offset grid, speed-squared grid, finite preview horizon, and terminal
+  cap `min(v_max², a_lat·r_h)`. The cap is the only information supplied beyond
+  the preview; it is not a forecast or a whole-course boundary condition.
+- **Objective quantisation.** The cost is the sum of integer ceiling charges
+  using floored integer speeds. `Corpus.Teacher` proves this declared objective,
+  not a physical stopwatch time or an unconstrained continuous-time minimum.
+- **Lean kernel and axioms.** The formal result relies on the Lean 4.35.0
+  kernel and the standard axioms audited for the corpus (`propext`,
+  `Classical.choice`, and `Quot.sound`). The theorem is about the definitions
+  in `Corpus.Teacher`.
+- **Compiled `teachercheck`.** The executable parses JSON and evaluates
+  `Corpus.Teacher.checkCert`; its exit status and output are trusted as a
+  compiled Lean/JSON execution. The kernel theorems establish what an accepted
+  `CheckCert` means; they do not prove that an arbitrary executable invocation
+  was performed or that a file was not changed afterward.
+- **Python semantics.** Model construction, sparse DP, certificate serialization,
+  and the Python checker run under CPython semantics. Python/Lean parity is
+  checked on generated certificates; no Lean theorem quantifies over arbitrary
+  Python executions.
+- **Tracking and actuation.** The teacher certificate does not cover controller
+  tracking error, steering or pedal actuation, delay, saturation, perception
+  updates, or collision-free execution of the exported plan.
+- **Finite optimum versus physical traversal time.** A finite-model optimum is
+  an optimum for the declared quantised objective and constraints. It is not a
+  claim that a physical vehicle attains that cost, that CARLA executes the plan,
+  or that the plan is optimal on a continuous vehicle or a full course.
+
+- **Offline versus realtime declaration.** Offline exact mode uses the requested
+  full finite declaration. Realtime mode uses a reduced horizon/grid and is exact
+  only for that reduced declaration; it is not the full-model optimum.
+- **Recovery and student tracking layers.** Centreline recovery is an explicit
+  uncertified tracking mode. The student controller's startup speed floor and
+  its copied pursuit and pedal formulas are additional uncertified tracking and
+  actuation layers; they do not inherit the teacher certificate.
+- **Simulator metrics.** Cone-hit, off-course, completion, and timing metrics
+  are observations from the bicycle simulator runs. They are not safety proofs,
+  CARLA results, or proofs of continuous-model optimality.
