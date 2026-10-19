@@ -94,6 +94,13 @@ controller is slower and clips boundary cones on the tight public courses.
   inflation) is the margin that keeps the car off the cones on most courses, and
   raising the grip budget (`MU`, `A_LT`) to recover lap time caused 10–17 cones
   in closed loop — the model is optimistic exactly where the extra speed is.
+* The tail of the plan is one **constant command** held for 6 control periods
+  (0.3 s). At 12 m/s that is a 3.6 m chord through the corner, so a long tail
+  cannot follow the road and the model's own constraints become unsatisfiable
+  in tight corners (`dbg_feasible` falls to 0.60 on `practice_loop`). Shorter
+  tails give the car less time to brake (tested: technical DNF), longer tails
+  are not affordable at 50 ms, and more blocks multiply the plan count. This
+  is the structural limit of the move-blocked exact search at this budget.
 * `certline` is faster because it runs a *racing line* with a longer horizon and
   a fixed speed profile, then tracks it; it is not optimal for any model, and it
   is not certified.
