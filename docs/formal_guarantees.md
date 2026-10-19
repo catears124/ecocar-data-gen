@@ -72,6 +72,18 @@ can track the resulting plan (rear slip, cone hits) is outside the theorems, and
 in `docs/proof_closure_report.md` show that above `lat_frac ≈ 0.75` it cannot on the bicycle
 backend. The circle model is a relaxation and is not certified by `Cert`.
 
+### B″. Certificate interface for a preview-only lattice expert (`Corpus.ExactDp`)
+
+| theorem | hypotheses | statement |
+|---|---|---|
+| `certificate_no_path_beats`, `certificate_has_optimal_path` | `valueO terminal stages start = some v` | no admissible lattice path costs less than `v`, and an admissible path of cost `v` exists (restatements of `valueO_le_cost` / `valueO_attained`) |
+| `terminal_brake_safe` | `0 ≤ 2·a·d`, `1 ≤ n`, `b ≤ n·(2·a·d)` | `n` full-braking intervals bring speed² `b` to 0 (restatement of `full_brake_reaches_zero`) |
+
+Used by an offline experiment, not by `teams/certline.py`. The experiment searched a lattice of
+exact bicycle-model rollouts using only the controller's own 40 m preview. It lost to the
+shipped controller: on 30 sampled states it found a plan for 14, with mean −0.56 m of 2 s
+progress, and needed 44 s per solve. It was not shipped. Optimality here is over the lattice only.
+
 ## C. Lateral plan `steer-2` (`Corpus.SteerProofs`, `SteerClear`, `SteerShape`, `SteerRamp`)
 
 | theorem | hypotheses | statement |

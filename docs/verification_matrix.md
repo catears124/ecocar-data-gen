@@ -14,7 +14,7 @@ Status categories (never mixed):
 | **U** | unresolved obligation: counterexample, failed proof attempt, or missing modelling ingredient |
 
 Inventory: `lean/Corpus/Audit.lean` lists **every** `theorem` declared in `lean/Corpus/*.lean`
-(370 at the time of writing); `autocross.datagen.lean_bridge.axiom_audit` fails if one is
+(373 at the time of writing); `autocross.datagen.lean_bridge.axiom_audit` fails if one is
 unlisted (`unlisted`), not reported (`missing`) or uses a non-standard axiom
 (`non_standard`); `tests/test_longitudinal_proofs.py` checks the inventory without Lean.
 

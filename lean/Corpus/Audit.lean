@@ -51,6 +51,9 @@ import Corpus
 #print axioms Corpus.BellmanOpt.valueO_eq_old
 #print axioms Corpus.BellmanOpt.valueO_le_cost
 #print axioms Corpus.BellmanOpt.valueO_none_iff
+#print axioms Corpus.ExactDp.certificate_no_path_beats
+#print axioms Corpus.ExactDp.certificate_has_optimal_path
+#print axioms Corpus.ExactDp.terminal_brake_safe
 #print axioms Corpus.Cert.DynPossible_head_nonneg
 #print axioms Corpus.Cert.LeAll_get1
 #print axioms Corpus.Cert.LeAll_head

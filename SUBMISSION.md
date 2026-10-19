@@ -70,7 +70,7 @@ The following theorem names were checked in `lean/Corpus/`:
 - Planning levers (`lean/Corpus/Levers.lean`): the joint model for any step relation (`valueP_lower`, `valueP_attained`, `valueP_none_iff`); `lever_value_le` (relaxing a constraint never worsens the optimum); `budget_lever` with `cornering_lever`, `braking_lever`, `accel_lever`, `horizon_lever`; `extra_caps_cost`/`extra_caps_mono` (gap rule, sidestep gate); `box_step_circle`/`circle_value_le_box` (the certified box is a conservative subset of the friction circle); kernel-checked instances `toy_cornering_binds`, `toy_braking_slack`, `toy_circle_gain`.
 - Controller (`lean/Corpus/Controller.lean`, `ControllerLong.lean`): clearance interval soundness/completeness, projection and publication inside the interval, speed decision greatest-safe for the controller's own caps, actuation invariants.
 
-All 370 theorems are listed in `lean/Corpus/Audit.lean`; the audit fails if a declared theorem is unlisted. Exact statements: `docs/formal_guarantees.md`; link-by-link status: `docs/verification_matrix.md`; trust boundary: `docs/trust_boundary.md`.
+All 373 theorems are listed in `lean/Corpus/Audit.lean`; the audit fails if a declared theorem is unlisted. Exact statements: `docs/formal_guarantees.md`; link-by-link status: `docs/verification_matrix.md`; trust boundary: `docs/trust_boundary.md`.
 
 These are model theorems with their stated hypotheses. They are not claims about CARLA tyre physics or a learned policy.
 
