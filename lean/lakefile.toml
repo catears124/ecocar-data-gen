@@ -8,3 +8,7 @@ name = "Corpus"
 [[lean_exe]]
 name = "corpuscheck"
 root = "Main"
+
+[[lean_exe]]
+name = "teachercheck"
+root = "TeacherCheck"

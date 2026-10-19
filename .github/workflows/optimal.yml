@@ -1,0 +1,87 @@
+name: optimal-teacher
+
+on:
+  push:
+    branches: [optimal-teacher]
+  pull_request:
+    branches: [optimal-teacher]
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONHASHSEED: "0"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest
+
+      - name: Cache Lean toolchain and Lake build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.elan/toolchains
+            lean/.lake
+          key: ${{ runner.os }}-lean-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}
+
+      - name: Install elan and the pinned Lean toolchain
+        shell: bash
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          "$HOME/.elan/bin/elan" toolchain install "$(cat lean/lean-toolchain)"
+
+      - name: Build the Lean teacher checker
+        run: cd lean && lake build teachercheck
+
+      - name: Python optimal-teacher tests
+        run: >-
+          python -m pytest -q tests/test_teacher_optimal.py
+          tests/test_teacher_parity.py tests/test_optimal_ci.py
+
+      - name: Generate bounded optimal-teacher smoke corpus
+        run: python -m autocross.datagen.optimal_corpus --out /tmp/optimal-smoke --smoke
+
+      - name: Require every generated certificate to be accepted
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path("/tmp/optimal-smoke")
+          if not root.is_dir():
+              raise SystemExit(f"smoke output directory is missing: {root}")
+
+          examples = root / "examples.jsonl"
+          if not examples.is_file():
+              raise SystemExit(f"smoke examples are missing: {examples}")
+
+          fields = []
+          with examples.open(encoding="utf-8") as stream:
+              for line_number, line in enumerate(stream, 1):
+                  if not line.strip():
+                      continue
+                  record = json.loads(line)
+                  label = record.get("label", {})
+                  certificate_path = label.get("certificate_path")
+                  if certificate_path is not None:
+                      fields.append((f"{examples}:{line_number}", label.get("certificate_ok")))
+
+          if not fields:
+              raise SystemExit("smoke corpus contains no generated certificates")
+          bad = [(path, value) for path, value in fields if value is not True]
+          if bad:
+              raise SystemExit(f"certificate_ok was not true: {bad}")
+          print(f"validated {len(fields)} certificate_ok fields")
+          PY

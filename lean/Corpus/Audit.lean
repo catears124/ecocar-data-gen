@@ -5,6 +5,7 @@ depend on nothing beyond Lean's standard axioms (propext, Classical.choice, Quot
 particular no `sorryAx` and no `Lean.ofReduceBool` (native_decide).
 -/
 import Corpus
+import Corpus.TeacherWitness
 
 #print axioms Corpus.AdjOK_trans
 #print axioms Corpus.Bellman.bestCost_congr
@@ -379,3 +380,19 @@ import Corpus
 #print axioms Corpus.mirror_steer_bound
 #print axioms Corpus.noCrossSplit_of_check
 #print axioms Corpus.pairs_within_split
+#print axioms Corpus.Teacher.certificate_optimal
+#print axioms Corpus.Teacher.timeCost_eq_isqrt
+#print axioms Corpus.Teacher.witness_check
+#print axioms Corpus.Teacher.actionsT_complete
+#print axioms Corpus.Teacher.bestO_congr_on
+#print axioms Corpus.Teacher.certificate_infeasible
+#print axioms Corpus.Teacher.certificate_lower_bound
+#print axioms Corpus.Teacher.certificate_plan
+#print axioms Corpus.Teacher.certificate_value
+#print axioms Corpus.Teacher.checkCert_sound
+#print axioms Corpus.Teacher.mem_actionsT
+#print axioms Corpus.Teacher.plan_length
+#print axioms Corpus.Teacher.plan_terminal_station
+#print axioms Corpus.Teacher.plan_trajT
+#print axioms Corpus.Teacher.sparse_value
+#print axioms Corpus.Teacher.table_value_cert
