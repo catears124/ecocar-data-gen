@@ -54,10 +54,12 @@ Conclusions:
 4. **Longer horizons / richer actions alone do not fix a conservative model.**
    In the cluster, widening the actions recovers only 6 %.
 
-Prediction error by measured lateral acceleration (p95, 0.20 s horizon,
-`practice_basic`): `d` 1.3–2.7 cm, `v` 5–7 cm/s below 7 m/s².  The recorded
-runs did not reach sustained 7–9 m/s² in the `timed-1` dataset, so the
-high-utilisation regime is under-sampled; this is reported rather than hidden.
+Prediction error of the integer model on a `certline` run that reaches
+7.8 m/s² (p95 absolute error): 0.10 s — `d` 1.7 cm, `v` 5.5 cm/s;
+0.20 s — `d` 3.8 cm, `v` 10.9 cm/s; 0.50 s — `d` 10.3 cm, `v` 26.6 cm/s.
+That growth is the quantitative reason the `timed-1` corridor margin could not
+be defended at the limit; the raw report is
+`experiments/bench/v3/fidelity_certline_basic.json`.
 
 ## 3. New architecture
 
