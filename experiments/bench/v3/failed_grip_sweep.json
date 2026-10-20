@@ -1,0 +1,240 @@
+{
+ "summary": {
+  "jobs": 4,
+  "mode": "measure",
+  "seeds": [
+   0
+  ],
+  "tracks": [
+   "practice_basic",
+   "practice_technical"
+  ],
+  "set": {},
+  "perturb": {},
+  "by_controller": {
+   "l75": {
+    "runs": 2,
+    "finished": 2,
+    "technical_mean": 52.865,
+    "time_mean_finished_s": 37.29993238189253,
+    "adjusted_time_mean_finished_s": 39.2995,
+    "cones": 2,
+    "off_course": 0,
+    "missed_gate": 0,
+    "exact_fraction_mean": 0.9982394366197183,
+    "feasible_fraction_mean": 0.0,
+    "step_ms_p50_median": 34.38630000164267,
+    "step_ms_p99_max": 64.09025499888232,
+    "overruns": 37,
+    "peak_memory_mb_max": 49.58984375,
+    "solve_ms_p50_max": 27.3796,
+    "solve_ms_p99_max": 54.9299,
+    "categories_mean": {
+     "completion_time": 74.11,
+     "compute": 25.295,
+     "deviation": 94.725,
+     "dynamics": 97.53
+    }
+   },
+   "l80": {
+    "runs": 2,
+    "finished": 2,
+    "technical_mean": 31.02,
+    "time_mean_finished_s": 37.159261991576315,
+    "adjusted_time_mean_finished_s": 54.159000000000006,
+    "cones": 17,
+    "off_course": 1,
+    "missed_gate": 0,
+    "exact_fraction_mean": 0.9270866365138442,
+    "feasible_fraction_mean": 0.0,
+    "step_ms_p50_median": 34.88979999383446,
+    "step_ms_p99_max": 54.899295992217965,
+    "overruns": 33,
+    "peak_memory_mb_max": 49.265625,
+    "solve_ms_p50_max": 28.0333,
+    "solve_ms_p99_max": 45.9213,
+    "categories_mean": {
+     "completion_time": 74.49000000000001,
+     "compute": 27.134999999999998,
+     "deviation": 69.88,
+     "dynamics": 90.775
+    }
+   }
+  }
+ },
+ "runs": [
+  {
+   "controller": "l75",
+   "track": "practice_basic",
+   "seed": 0,
+   "perturb": {},
+   "finished": true,
+   "dnf_reason": null,
+   "progress": 1.0,
+   "time_s": 33.658446886700034,
+   "reference_time_s": 29.322336369105905,
+   "adjusted_time_s": 37.658,
+   "cones": 2,
+   "obstacle_hits": 0,
+   "off_course": 0,
+   "missed_gate": 0,
+   "technical": 51.95,
+   "category_scores": {
+    "completion_time": 81.15,
+    "deviation": 93.12,
+    "compute": 20.45,
+    "dynamics": 97.12
+   },
+   "step_ms_p50": 34.38630000164267,
+   "step_ms_p99": 64.09025499888232,
+   "step_ms_max": 133.64590000128374,
+   "overruns": 23,
+   "peak_memory_mb": 49.4140625,
+   "path_err_mean_m": 0.1190871271221567,
+   "path_err_max_m": 0.8507026503648469,
+   "controller_error": "",
+   "run_dir": "experiments\\diag\\lineopt_grip_sweep\\l75_practice_basic_s0",
+   "control_steps": 706,
+   "status_counts": {
+    "1": 706
+   },
+   "exact_fraction": 1.0,
+   "fallback_reasons": {},
+   "solve_ms_p50": 27.3796,
+   "solve_ms_p99": 54.9299,
+   "solve_ms_max": 124.55
+  },
+  {
+   "controller": "l75",
+   "track": "practice_technical",
+   "seed": 0,
+   "perturb": {},
+   "finished": true,
+   "dnf_reason": null,
+   "progress": 1.0,
+   "time_s": 40.94141787708504,
+   "reference_time_s": 31.597609036274566,
+   "adjusted_time_s": 40.941,
+   "cones": 0,
+   "obstacle_hits": 0,
+   "off_course": 0,
+   "missed_gate": 0,
+   "technical": 53.78,
+   "category_scores": {
+    "completion_time": 67.07,
+    "deviation": 96.33,
+    "compute": 30.14,
+    "dynamics": 97.94
+   },
+   "step_ms_p50": 19.461849980871193,
+   "step_ms_p99": 55.99591599602718,
+   "step_ms_max": 93.86839999933727,
+   "overruns": 14,
+   "peak_memory_mb": 49.58984375,
+   "path_err_mean_m": 0.07886003565431489,
+   "path_err_max_m": 0.7292511153610414,
+   "controller_error": "",
+   "run_dir": "experiments\\diag\\lineopt_grip_sweep\\l75_practice_technical_s0",
+   "control_steps": 852,
+   "status_counts": {
+    "0": 3,
+    "1": 849
+   },
+   "exact_fraction": 0.9964788732394366,
+   "fallback_reasons": {
+    "13": 3
+   },
+   "solve_ms_p50": 12.7625,
+   "solve_ms_p99": 41.5238,
+   "solve_ms_max": 86.6116
+  },
+  {
+   "controller": "l80",
+   "track": "practice_basic",
+   "seed": 0,
+   "perturb": {},
+   "finished": true,
+   "dnf_reason": null,
+   "progress": 1.0,
+   "time_s": 34.07537458484769,
+   "reference_time_s": 29.322336369105905,
+   "adjusted_time_s": 56.075,
+   "cones": 11,
+   "obstacle_hits": 0,
+   "off_course": 1,
+   "missed_gate": 0,
+   "technical": 20.43,
+   "category_scores": {
+    "completion_time": 79.8,
+    "deviation": 42.98,
+    "compute": 25.73,
+    "dynamics": 87.85
+   },
+   "step_ms_p50": 34.0550999972038,
+   "step_ms_p99": 54.899295992217965,
+   "step_ms_max": 83.61329999752343,
+   "overruns": 17,
+   "peak_memory_mb": 48.8046875,
+   "path_err_mean_m": 0.3552462281963928,
+   "path_err_max_m": 3.195724233396556,
+   "controller_error": "",
+   "run_dir": "experiments\\diag\\lineopt_grip_sweep\\l80_practice_basic_s0",
+   "control_steps": 715,
+   "status_counts": {
+    "0": 100,
+    "1": 615
+   },
+   "exact_fraction": 0.8601398601398601,
+   "fallback_reasons": {
+    "11": 100
+   },
+   "solve_ms_p50": 28.0333,
+   "solve_ms_p99": 45.9213,
+   "solve_ms_max": 60.1866
+  },
+  {
+   "controller": "l80",
+   "track": "practice_technical",
+   "seed": 0,
+   "perturb": {},
+   "finished": true,
+   "dnf_reason": null,
+   "progress": 1.0,
+   "time_s": 40.243149398304936,
+   "reference_time_s": 31.597609036274566,
+   "adjusted_time_s": 52.243,
+   "cones": 6,
+   "obstacle_hits": 0,
+   "off_course": 0,
+   "missed_gate": 0,
+   "technical": 41.61,
+   "category_scores": {
+    "completion_time": 69.18,
+    "deviation": 96.78,
+    "compute": 28.54,
+    "dynamics": 93.7
+   },
+   "step_ms_p50": 34.88979999383446,
+   "step_ms_p99": 53.88212701305747,
+   "step_ms_max": 88.02649998688139,
+   "overruns": 16,
+   "peak_memory_mb": 49.265625,
+   "path_err_mean_m": 0.10380507678101174,
+   "path_err_max_m": 0.6851008381036315,
+   "controller_error": "",
+   "run_dir": "experiments\\diag\\lineopt_grip_sweep\\l80_practice_technical_s0",
+   "control_steps": 838,
+   "status_counts": {
+    "0": 5,
+    "1": 833
+   },
+   "exact_fraction": 0.9940334128878282,
+   "fallback_reasons": {
+    "13": 5
+   },
+   "solve_ms_p50": 26.7287,
+   "solve_ms_p99": 43.1189,
+   "solve_ms_max": 61.3817
+  }
+ ]
+}

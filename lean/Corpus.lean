@@ -25,3 +25,4 @@ import Corpus.Actuator
 import Corpus.ActuatorWitness
 import Corpus.Timed
 import Corpus.TimedWitness
+import Corpus.Oracle

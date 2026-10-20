@@ -25,7 +25,18 @@ python -m autocross selftest -c teams/certline.py --carla    # the same courses 
 
 `selftest` also checks the sandbox rules (no writes, no sockets, no `ctypes`, no course data from disk) and reports finishes, penalties, step time and technical points. CARLA is optional for the first command; only the `--carla` pass needs a server and a GPU.
 
-## Time-indexed actuator-optimal controller (`timed-1`)
+## Actuator-optimal control v3 (`teams/line_opt.py`)
+
+The `timed-1` design below is retained as a reproducible negative result.  The
+v3 redesign in [`docs/optimal_control_v3.md`](docs/optimal_control_v3.md) adds
+(a) an offline exact joint oracle with Lean-checked certificates and an explicit
+baseline-dominance theorem, (b) a hierarchical realtime path/speed planner, and
+(c) a baseline-inclusive portfolio that matches `certline` on the five public
+courses and the held-out sample.  It does **not** claim that the realtime
+planner beats `certline`; the selected-plan fraction and the measured gap are
+reported in that document.
+
+## Time-indexed actuator-optimal controller (`timed-1`) — superseded
 
 `teams/timed_exact.py` runs an exact, time-indexed joint steering/pedal optimiser:
 25 ms model ticks, the first plan block is exactly one 50 ms control period, a

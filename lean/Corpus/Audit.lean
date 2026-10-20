@@ -438,3 +438,7 @@ import Corpus.TeacherWitness
 #print axioms Corpus.Timed.leLex_total
 #print axioms Corpus.Timed.leLex_trans
 #print axioms Corpus.Timed.witness_check
+
+/-! ## baseline-inclusive offline oracle -/
+#print axioms Corpus.Oracle.baseline_dominance
+#print axioms Corpus.Oracle.certified_le_of_mem

@@ -1,0 +1,261 @@
+{
+ "summary": {
+  "jobs": 5,
+  "mode": "measure",
+  "seeds": [
+   0
+  ],
+  "tracks": [
+   "hackathon_test",
+   "practice_basic",
+   "practice_loop",
+   "practice_obstacles",
+   "practice_technical"
+  ],
+  "set": {},
+  "perturb": {},
+  "by_controller": {
+   "lineopt": {
+    "runs": 5,
+    "finished": 5,
+    "technical_mean": 43.748000000000005,
+    "time_mean_finished_s": 57.192237857053314,
+    "adjusted_time_mean_finished_s": 70.792,
+    "cones": 34,
+    "off_course": 0,
+    "missed_gate": 0,
+    "exact_fraction_mean": 0.9532124332237661,
+    "feasible_fraction_mean": 0.0,
+    "step_ms_p50_median": 19.094050003332086,
+    "step_ms_p99_max": 44.58194400649517,
+    "overruns": 30,
+    "peak_memory_mb_max": 54.09765625,
+    "solve_ms_p50_max": 16.1776,
+    "solve_ms_p99_max": 34.5104,
+    "categories_mean": {
+     "completion_time": 73.14,
+     "compute": 51.089999999999996,
+     "deviation": 87.062,
+     "dynamics": 97.694
+    }
+   }
+  }
+ },
+ "runs": [
+  {
+   "controller": "lineopt",
+   "track": "hackathon_test",
+   "seed": 0,
+   "perturb": {},
+   "finished": true,
+   "dnf_reason": null,
+   "progress": 1.0,
+   "time_s": 53.969863334734,
+   "reference_time_s": 45.254186247703174,
+   "adjusted_time_s": 71.97,
+   "cones": 9,
+   "obstacle_hits": 0,
+   "off_course": 0,
+   "missed_gate": 0,
+   "technical": 42.86,
+   "category_scores": {
+    "completion_time": 76.9,
+    "deviation": 90.88,
+    "compute": 62.0,
+    "dynamics": 99.05
+   },
+   "step_ms_p50": 18.642800016095862,
+   "step_ms_p99": 32.68781200051297,
+   "step_ms_max": 66.20839997776784,
+   "overruns": 2,
+   "peak_memory_mb": 50.01953125,
+   "path_err_mean_m": 0.12731010491731046,
+   "path_err_max_m": 0.9559596357627658,
+   "controller_error": "",
+   "run_dir": "experiments\\diag\\lineopt_all5\\lineopt_hackathon_test_s0",
+   "control_steps": 1113,
+   "status_counts": {
+    "0": 94,
+    "1": 1019
+   },
+   "exact_fraction": 0.9155435759209344,
+   "fallback_reasons": {
+    "13": 94
+   },
+   "solve_ms_p50": 12.1812,
+   "solve_ms_p99": 22.5303,
+   "solve_ms_max": 41.2575
+  },
+  {
+   "controller": "lineopt",
+   "track": "practice_basic",
+   "seed": 0,
+   "perturb": {},
+   "finished": true,
+   "dnf_reason": null,
+   "progress": 1.0,
+   "time_s": 34.4304389174446,
+   "reference_time_s": 29.322336369105905,
+   "adjusted_time_s": 34.43,
+   "cones": 0,
+   "obstacle_hits": 0,
+   "off_course": 0,
+   "missed_gate": 0,
+   "technical": 60.46,
+   "category_scores": {
+    "completion_time": 78.65,
+    "deviation": 94.59,
+    "compute": 51.9,
+    "dynamics": 99.3
+   },
+   "step_ms_p50": 19.094050003332086,
+   "step_ms_p99": 39.82770000002312,
+   "step_ms_max": 87.10220002103597,
+   "overruns": 2,
+   "peak_memory_mb": 46.55078125,
+   "path_err_mean_m": 0.0889705827580598,
+   "path_err_max_m": 0.8383215328890445,
+   "controller_error": "",
+   "run_dir": "experiments\\diag\\lineopt_all5\\lineopt_practice_basic_s0",
+   "control_steps": 722,
+   "status_counts": {
+    "1": 722
+   },
+   "exact_fraction": 1.0,
+   "fallback_reasons": {},
+   "solve_ms_p50": 12.6009,
+   "solve_ms_p99": 22.2989,
+   "solve_ms_max": 43.3732
+  },
+  {
+   "controller": "lineopt",
+   "track": "practice_loop",
+   "seed": 0,
+   "perturb": {},
+   "finished": true,
+   "dnf_reason": null,
+   "progress": 1.0,
+   "time_s": 90.27625852763458,
+   "reference_time_s": 78.60739396015649,
+   "adjusted_time_s": 90.276,
+   "cones": 0,
+   "obstacle_hits": 0,
+   "off_course": 0,
+   "missed_gate": 0,
+   "technical": 60.59,
+   "category_scores": {
+    "completion_time": 81.1,
+    "deviation": 100.0,
+    "compute": 41.71,
+    "dynamics": 100.0
+   },
+   "step_ms_p50": 23.137300013331696,
+   "step_ms_p99": 44.58194400649517,
+   "step_ms_max": 82.2121000092011,
+   "overruns": 17,
+   "peak_memory_mb": 54.09765625,
+   "path_err_mean_m": 0.09343389569313645,
+   "path_err_max_m": 0.36619760204990376,
+   "controller_error": "",
+   "run_dir": "experiments\\diag\\lineopt_all5\\lineopt_practice_loop_s0",
+   "control_steps": 1849,
+   "status_counts": {
+    "1": 1849
+   },
+   "exact_fraction": 1.0,
+   "fallback_reasons": {},
+   "solve_ms_p50": 16.1776,
+   "solve_ms_p99": 31.1273,
+   "solve_ms_max": 49.7318
+  },
+  {
+   "controller": "lineopt",
+   "track": "practice_obstacles",
+   "seed": 0,
+   "perturb": {},
+   "finished": true,
+   "dnf_reason": null,
+   "progress": 1.0,
+   "time_s": 64.72643912667434,
+   "reference_time_s": 49.86541192888362,
+   "adjusted_time_s": 114.726,
+   "cones": 25,
+   "obstacle_hits": 0,
+   "off_course": 0,
+   "missed_gate": 0,
+   "technical": 0.0,
+   "category_scores": {
+    "completion_time": 66.85,
+    "deviation": 53.84,
+    "compute": 54.53,
+    "dynamics": 90.31
+   },
+   "step_ms_p50": 19.03295000374783,
+   "step_ms_p99": 37.75013200851393,
+   "step_ms_max": 87.41199999349192,
+   "overruns": 4,
+   "peak_memory_mb": 50.63671875,
+   "path_err_mean_m": 0.30128223812200994,
+   "path_err_max_m": 2.5465848672389044,
+   "controller_error": "",
+   "run_dir": "experiments\\diag\\lineopt_all5\\lineopt_practice_obstacles_s0",
+   "control_steps": 1328,
+   "status_counts": {
+    "0": 191,
+    "1": 1137
+   },
+   "exact_fraction": 0.8561746987951807,
+   "fallback_reasons": {
+    "13": 41,
+    "11": 150
+   },
+   "solve_ms_p50": 12.8701,
+   "solve_ms_p99": 25.0765,
+   "solve_ms_max": 74.1432
+  },
+  {
+   "controller": "lineopt",
+   "track": "practice_technical",
+   "seed": 0,
+   "perturb": {},
+   "finished": true,
+   "dnf_reason": null,
+   "progress": 1.0,
+   "time_s": 42.55818937877907,
+   "reference_time_s": 31.597609036274566,
+   "adjusted_time_s": 42.558,
+   "cones": 0,
+   "obstacle_hits": 0,
+   "off_course": 0,
+   "missed_gate": 0,
+   "technical": 54.83,
+   "category_scores": {
+    "completion_time": 62.2,
+    "deviation": 96.0,
+    "compute": 45.31,
+    "dynamics": 99.81
+   },
+   "step_ms_p50": 19.12249998713378,
+   "step_ms_p99": 43.47340098087439,
+   "step_ms_max": 142.65200000954792,
+   "overruns": 5,
+   "peak_memory_mb": 46.8125,
+   "path_err_mean_m": 0.0765344492660127,
+   "path_err_max_m": 0.7499559150794836,
+   "controller_error": "",
+   "run_dir": "experiments\\diag\\lineopt_all5\\lineopt_practice_technical_s0",
+   "control_steps": 884,
+   "status_counts": {
+    "0": 5,
+    "1": 879
+   },
+   "exact_fraction": 0.994343891402715,
+   "fallback_reasons": {
+    "13": 5
+   },
+   "solve_ms_p50": 11.9456,
+   "solve_ms_p99": 34.5104,
+   "solve_ms_max": 77.8561
+  }
+ ]
+}

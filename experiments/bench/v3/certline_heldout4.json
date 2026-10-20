@@ -1,0 +1,205 @@
+{
+ "summary": {
+  "jobs": 4,
+  "mode": "measure",
+  "seeds": [
+   0
+  ],
+  "tracks": [
+   "test-course-0000",
+   "test-course-0001",
+   "test-course-0002",
+   "test-course-0003"
+  ],
+  "set": {},
+  "perturb": {},
+  "by_controller": {
+   "certline": {
+    "runs": 4,
+    "finished": 4,
+    "technical_mean": 69.5525,
+    "time_mean_finished_s": 21.309245673969333,
+    "adjusted_time_mean_finished_s": 22.80925,
+    "cones": 3,
+    "off_course": 0,
+    "missed_gate": 0,
+    "exact_fraction_mean": 0.0,
+    "feasible_fraction_mean": 0.0,
+    "step_ms_p50_median": 1.2585999793373048,
+    "step_ms_p99_max": 2.367336996830998,
+    "overruns": 0,
+    "peak_memory_mb_max": 36.39453125,
+    "solve_ms_p50_max": 0.0,
+    "solve_ms_p99_max": 0.0,
+    "categories_mean": {
+     "completion_time": 91.6925,
+     "compute": 100.0,
+     "deviation": 90.2875,
+     "dynamics": 100.0
+    }
+   }
+  }
+ },
+ "runs": [
+  {
+   "controller": "certline",
+   "track": "test-course-0000",
+   "seed": 0,
+   "perturb": {},
+   "finished": true,
+   "dnf_reason": null,
+   "progress": 1.0,
+   "time_s": 20.745847170241305,
+   "reference_time_s": 18.844709253656617,
+   "adjusted_time_s": 26.746,
+   "cones": 3,
+   "obstacle_hits": 0,
+   "off_course": 0,
+   "missed_gate": 0,
+   "technical": 58.91,
+   "category_scores": {
+    "completion_time": 85.63,
+    "deviation": 61.48,
+    "compute": 100.0,
+    "dynamics": 100.0
+   },
+   "step_ms_p50": 1.204400003189221,
+   "step_ms_p99": 1.840259013697505,
+   "step_ms_max": 1.9112000009045005,
+   "overruns": 0,
+   "peak_memory_mb": 36.39453125,
+   "path_err_mean_m": 0.286160179696182,
+   "path_err_max_m": 2.1321249663933135,
+   "controller_error": "",
+   "run_dir": "experiments\\diag\\certline_heldout\\certline_test-course-0000_s0",
+   "control_steps": 448,
+   "status_counts": {
+    "0": 448
+   },
+   "exact_fraction": 0.0,
+   "fallback_reasons": {
+    "": 448
+   }
+  },
+  {
+   "controller": "certline",
+   "track": "test-course-0001",
+   "seed": 0,
+   "perturb": {},
+   "finished": true,
+   "dnf_reason": null,
+   "progress": 1.0,
+   "time_s": 24.360394552371442,
+   "reference_time_s": 23.71700948260167,
+   "adjusted_time_s": 24.36,
+   "cones": 0,
+   "obstacle_hits": 0,
+   "off_course": 0,
+   "missed_gate": 0,
+   "technical": 72.75,
+   "category_scores": {
+    "completion_time": 92.65,
+    "deviation": 99.67,
+    "compute": 100.0,
+    "dynamics": 100.0
+   },
+   "step_ms_p50": 1.253599999472499,
+   "step_ms_p99": 2.001563992816953,
+   "step_ms_max": 4.130899993469939,
+   "overruns": 0,
+   "peak_memory_mb": 36.09375,
+   "path_err_mean_m": 0.10499849508170475,
+   "path_err_max_m": 0.24745322860159866,
+   "controller_error": "",
+   "run_dir": "experiments\\diag\\certline_heldout\\certline_test-course-0001_s0",
+   "control_steps": 545,
+   "status_counts": {
+    "0": 545
+   },
+   "exact_fraction": 0.0,
+   "fallback_reasons": {
+    "": 545
+   }
+  },
+  {
+   "controller": "certline",
+   "track": "test-course-0002",
+   "seed": 0,
+   "perturb": {},
+   "finished": true,
+   "dnf_reason": null,
+   "progress": 1.0,
+   "time_s": 17.06604928763916,
+   "reference_time_s": 17.356092909775565,
+   "adjusted_time_s": 17.066,
+   "cones": 0,
+   "obstacle_hits": 0,
+   "off_course": 0,
+   "missed_gate": 0,
+   "technical": 74.05,
+   "category_scores": {
+    "completion_time": 96.83,
+    "deviation": 100.0,
+    "compute": 100.0,
+    "dynamics": 100.0
+   },
+   "step_ms_p50": 1.2585999793373048,
+   "step_ms_p99": 2.367336996830998,
+   "step_ms_max": 4.044300003442913,
+   "overruns": 0,
+   "peak_memory_mb": 35.98046875,
+   "path_err_mean_m": 0.09789432540312422,
+   "path_err_max_m": 0.40584817751967284,
+   "controller_error": "",
+   "run_dir": "experiments\\diag\\certline_heldout\\certline_test-course-0002_s0",
+   "control_steps": 374,
+   "status_counts": {
+    "0": 374
+   },
+   "exact_fraction": 0.0,
+   "fallback_reasons": {
+    "": 374
+   }
+  },
+  {
+   "controller": "certline",
+   "track": "test-course-0003",
+   "seed": 0,
+   "perturb": {},
+   "finished": true,
+   "dnf_reason": null,
+   "progress": 1.0,
+   "time_s": 23.06469168562542,
+   "reference_time_s": 22.230497660138745,
+   "adjusted_time_s": 23.065,
+   "cones": 0,
+   "obstacle_hits": 0,
+   "off_course": 0,
+   "missed_gate": 0,
+   "technical": 72.5,
+   "category_scores": {
+    "completion_time": 91.66,
+    "deviation": 100.0,
+    "compute": 100.0,
+    "dynamics": 100.0
+   },
+   "step_ms_p50": 1.2694000033661723,
+   "step_ms_p99": 2.059861999878194,
+   "step_ms_max": 3.8856999890413135,
+   "overruns": 0,
+   "peak_memory_mb": 36.125,
+   "path_err_mean_m": 0.09796047320073979,
+   "path_err_max_m": 0.20445933636755245,
+   "controller_error": "",
+   "run_dir": "experiments\\diag\\certline_heldout\\certline_test-course-0003_s0",
+   "control_steps": 508,
+   "status_counts": {
+    "0": 508
+   },
+   "exact_fraction": 0.0,
+   "fallback_reasons": {
+    "": 508
+   }
+  }
+ ]
+}

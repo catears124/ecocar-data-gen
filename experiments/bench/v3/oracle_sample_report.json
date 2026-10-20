@@ -1,0 +1,73 @@
+{
+ "run": "C:\\Users\\y\\Desktop\\carla\\veridrive-proof-closure\\experiments\\diag\\timed_basic\\timed_practice_basic_s0",
+ "horizon": 30,
+ "offsets": 7,
+ "speeds": 87,
+ "steps": [
+  {
+   "step": 5,
+   "t": 0.24999999999999997,
+   "speed": 1.3131852722081245,
+   "feasible": true,
+   "value": 3995214,
+   "solve_ms": 335.99179997690953,
+   "states": 4753,
+   "baseline_cost": 3995214,
+   "baseline_dominance": true,
+   "certificate_ok": true,
+   "certificate_errors": []
+  },
+  {
+   "step": 10,
+   "t": 0.5000000000000001,
+   "speed": 2.6250400445554267,
+   "feasible": true,
+   "value": 3804079,
+   "solve_ms": 333.43120000790805,
+   "states": 4753,
+   "baseline_cost": 3804079,
+   "baseline_dominance": true,
+   "certificate_ok": true,
+   "certificate_errors": []
+  },
+  {
+   "step": 20,
+   "t": 1.0000000000000004,
+   "speed": 5.244163315218512,
+   "feasible": true,
+   "value": 3447549,
+   "solve_ms": 466.38669999083504,
+   "states": 4851,
+   "baseline_cost": 3447549,
+   "baseline_dominance": true,
+   "certificate_ok": true,
+   "certificate_errors": []
+  },
+  {
+   "step": 40,
+   "t": 1.999999999999997,
+   "speed": 10.477266582510937,
+   "feasible": true,
+   "value": 2998302,
+   "solve_ms": 467.40560000762343,
+   "states": 5096,
+   "baseline_cost": null,
+   "baseline_dominance": null,
+   "baseline_reason": "baseline path curvature exceeds kappa_max at station 23",
+   "certificate_ok": true,
+   "certificate_errors": []
+  },
+  {
+   "step": 80,
+   "t": 3.99999999999999,
+   "speed": 15.129316462560217,
+   "feasible": false,
+   "value": null,
+   "solve_ms": 531.6946000093594,
+   "states": 5096,
+   "baseline_cost": null,
+   "baseline_dominance": null,
+   "baseline_reason": "baseline path curvature exceeds kappa_max at station 7"
+  }
+ ]
+}

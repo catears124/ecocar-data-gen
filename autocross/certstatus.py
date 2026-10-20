@@ -40,6 +40,12 @@ FALLBACK_REASONS = {
     "solver_error": 8,
     "certificate_mismatch": 9,
     "encoder_domain": 10,
+    "recovery_guard": 11,
+    "planner_error": 12,
+    "model_infeasible": 13,
+    "path_build_failed": 14,
+    "implausible_path": 15,
+    "tracker_error": 16,
 }
 
 

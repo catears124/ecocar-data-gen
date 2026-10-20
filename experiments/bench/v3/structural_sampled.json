@@ -1,0 +1,107 @@
+{
+ "run": "C:\\Users\\y\\Desktop\\carla\\veridrive-proof-closure\\experiments\\diag\\timed_basic\\timed_practice_basic_s0",
+ "steps_examined": 120,
+ "counts": {
+  "steps": 120,
+  "feasible": 117,
+  "baseline_representable": 76,
+  "baseline_augmented_feasible": 119,
+  "infeasible": 3,
+  "relax_corridor": 1,
+  "relax_friction": 3,
+  "relax_terminal": 3,
+  "relax_all": 3,
+  "wide_actions": 1
+ },
+ "fractions": {
+  "feasible": 0.975,
+  "infeasible": 0.025,
+  "relax_corridor_recovers": 0.3333333333333333,
+  "relax_friction_recovers": 1.0,
+  "relax_terminal_recovers": 1.0,
+  "relax_all_recovers": 1.0,
+  "wide_actions_recovers": 0.3333333333333333,
+  "baseline_representable": 0.6333333333333333,
+  "baseline_augmented_feasible": 0.9916666666666667
+ },
+ "fidelity_by_ay": {
+  "0-3": {
+   "n": 1100,
+   "d_p95": 0.02229055811462546,
+   "psi_p95": 0.00850777367853808,
+   "r_p95": 0.041315061125820965,
+   "v_p95": 0.016554054699098587
+  },
+  "3-5": {
+   "n": 892,
+   "d_p95": 0.020423791951208168,
+   "psi_p95": 0.007081328009345787,
+   "r_p95": 0.028536532309268472,
+   "v_p95": 0.04812653406566355
+  },
+  "5-7": {
+   "n": 872,
+   "d_p95": 0.012743559519072516,
+   "psi_p95": 0.0054625434955677095,
+   "r_p95": 0.025619619169469053,
+   "v_p95": 0.06910301457698237
+  }
+ },
+ "examples": {
+  "baseline_not_representable": {
+   "step": 12,
+   "off": -50,
+   "p": 1000,
+   "blocks": [
+    {
+     "steer": [
+      -100,
+      -50,
+      0,
+      50,
+      100
+     ],
+     "pedal": [
+      -1000,
+      -600,
+      -300,
+      0,
+      300,
+      600,
+      1000
+     ]
+    },
+    {
+     "steer": [
+      -200,
+      -100,
+      0,
+      100,
+      200
+     ],
+     "pedal": [
+      -1000,
+      0,
+      1000
+     ]
+    },
+    {
+     "steer": [
+      -300,
+      0,
+      300
+     ],
+     "pedal": [
+      -1000,
+      0,
+      1000
+     ]
+    }
+   ]
+  },
+  "first": {
+   "step": 92,
+   "t": 4.599999999999998
+  }
+ }
+}

@@ -1,0 +1,82 @@
+{
+ "summary": {
+  "jobs": 1,
+  "mode": "measure",
+  "seeds": [
+   0
+  ],
+  "tracks": [
+   "practice_basic"
+  ],
+  "set": {},
+  "perturb": {},
+  "by_controller": {
+   "certline": {
+    "runs": 1,
+    "finished": 1,
+    "technical_mean": 70.99,
+    "time_mean_finished_s": 29.17691216608322,
+    "adjusted_time_mean_finished_s": 29.177,
+    "cones": 0,
+    "off_course": 0,
+    "missed_gate": 0,
+    "exact_fraction_mean": 0.0,
+    "feasible_fraction_mean": 0.0,
+    "step_ms_p50_median": 2.076899982057512,
+    "step_ms_p99_max": 18.205883996561205,
+    "overruns": 0,
+    "peak_memory_mb_max": 36.171875,
+    "solve_ms_p50_max": 0.0,
+    "solve_ms_p99_max": 0.0,
+    "categories_mean": {
+     "completion_time": 95.71,
+     "compute": 82.39,
+     "deviation": 99.42,
+     "dynamics": 100.0
+    }
+   }
+  }
+ },
+ "runs": [
+  {
+   "controller": "certline",
+   "track": "practice_basic",
+   "seed": 0,
+   "perturb": {},
+   "finished": true,
+   "dnf_reason": null,
+   "progress": 1.0,
+   "time_s": 29.17691216608322,
+   "reference_time_s": 29.322336369105905,
+   "adjusted_time_s": 29.177,
+   "cones": 0,
+   "obstacle_hits": 0,
+   "off_course": 0,
+   "missed_gate": 0,
+   "technical": 70.99,
+   "category_scores": {
+    "completion_time": 95.71,
+    "deviation": 99.42,
+    "compute": 82.39,
+    "dynamics": 100.0
+   },
+   "step_ms_p50": 2.076899982057512,
+   "step_ms_p99": 18.205883996561205,
+   "step_ms_max": 25.500599993392825,
+   "overruns": 0,
+   "peak_memory_mb": 36.171875,
+   "path_err_mean_m": 0.1086639685577131,
+   "path_err_max_m": 0.3341166052754041,
+   "controller_error": "",
+   "run_dir": "experiments\\diag\\certline_basic\\certline_practice_basic_s0",
+   "control_steps": 617,
+   "status_counts": {
+    "0": 617
+   },
+   "exact_fraction": 0.0,
+   "fallback_reasons": {
+    "": 617
+   }
+  }
+ ]
+}
