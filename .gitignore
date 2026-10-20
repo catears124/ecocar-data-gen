@@ -30,6 +30,7 @@ experiments/il/results/weights/
 !teams/actuator_exact.py
 !teams/timed_exact.py
 !teams/line_opt.py
+!teams/sim_opt.py
 
 # benchmark run directories are regenerated; keep only the machine-readable summaries
 experiments/bench/**

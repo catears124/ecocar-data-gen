@@ -18,6 +18,7 @@ jobs:
         teachercheck
         actuatorcheck
         timedcheck
+        simcheck
     steps:
       - uses: actions/checkout@v4
 
@@ -86,6 +87,9 @@ jobs:
         run: >-
           python -m pytest -q -p no:cacheprovider -rs
           tests/test_timed_model.py tests/test_timed_lean.py
+
+      - name: Simulation certificate arithmetic (Lean)
+        run: lean/.lake/build/bin/simcheck experiments/bench/v3/simcert_160.json
 
       - name: Timed certificates accepted by Lean (real instances)
         run: >-

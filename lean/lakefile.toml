@@ -20,3 +20,7 @@ root = "ActuatorCheck"
 [[lean_exe]]
 name = "timedcheck"
 root = "TimedCheck"
+
+[[lean_exe]]
+name = "simcheck"
+root = "SimCheck"

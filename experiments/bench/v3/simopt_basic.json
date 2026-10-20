@@ -1,0 +1,83 @@
+{
+ "summary": {
+  "jobs": 1,
+  "mode": "measure",
+  "seeds": [
+   0
+  ],
+  "tracks": [
+   "practice_basic"
+  ],
+  "set": {},
+  "perturb": {},
+  "by_controller": {
+   "simopt": {
+    "runs": 1,
+    "finished": 1,
+    "technical_mean": 8.02,
+    "time_mean_finished_s": 36.708240202827824,
+    "adjusted_time_mean_finished_s": 60.708,
+    "cones": 12,
+    "off_course": 0,
+    "missed_gate": 0,
+    "exact_fraction_mean": 0.7900912646675359,
+    "feasible_fraction_mean": 0.0,
+    "step_ms_p50_median": 52.11300001246855,
+    "step_ms_p99_max": 71.23554399760907,
+    "overruns": 518,
+    "peak_memory_mb_max": 37.59765625,
+    "solve_ms_p50_max": 0.0,
+    "solve_ms_p99_max": 0.0,
+    "categories_mean": {
+     "completion_time": 71.25,
+     "compute": 10.0,
+     "deviation": 37.25,
+     "dynamics": 23.75
+    }
+   }
+  }
+ },
+ "runs": [
+  {
+   "controller": "simopt",
+   "track": "practice_basic",
+   "seed": 0,
+   "perturb": {},
+   "finished": true,
+   "dnf_reason": null,
+   "progress": 1.0,
+   "time_s": 36.708240202827824,
+   "reference_time_s": 29.322336369105905,
+   "adjusted_time_s": 60.708,
+   "cones": 12,
+   "obstacle_hits": 0,
+   "off_course": 0,
+   "missed_gate": 0,
+   "technical": 8.02,
+   "category_scores": {
+    "completion_time": 71.25,
+    "deviation": 37.25,
+    "compute": 10.0,
+    "dynamics": 23.75
+   },
+   "step_ms_p50": 52.11300001246855,
+   "step_ms_p99": 71.23554399760907,
+   "step_ms_max": 120.12690000119619,
+   "overruns": 518,
+   "peak_memory_mb": 37.59765625,
+   "path_err_mean_m": 0.44126254144316746,
+   "path_err_max_m": 3.0172828764548503,
+   "controller_error": "",
+   "run_dir": "tmp\\simopt_basic3\\simopt_practice_basic_s0",
+   "control_steps": 767,
+   "status_counts": {
+    "0": 161,
+    "1": 606
+   },
+   "exact_fraction": 0.7900912646675359,
+   "fallback_reasons": {
+    "3": 161
+   }
+  }
+ ]
+}

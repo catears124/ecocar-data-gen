@@ -28,7 +28,9 @@ python -m autocross selftest -c teams/certline.py --carla    # the same courses 
 ## Actuator-optimal control v3 (`teams/line_opt.py`)
 
 The `timed-1` design below is retained as a reproducible negative result.  The
-v3 redesign in [`docs/optimal_control_v3.md`](docs/optimal_control_v3.md) adds
+v3 redesign in [`docs/optimal_control_v3.md`](docs/optimal_control_v3.md) and the
+simulator-optimality certificate in
+[`docs/simulation_optimality.md`](docs/simulation_optimality.md) add
 (a) an offline exact joint oracle with Lean-checked certificates and an explicit
 baseline-dominance theorem, (b) a hierarchical realtime path/speed planner, and
 (c) a baseline-inclusive portfolio that matches `certline` on the five public
